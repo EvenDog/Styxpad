@@ -1,6 +1,7 @@
 // Wires the pieces together: the USB device listener feeds key presses into the remapper,
 // and the UI reads the status text and "which key is being pressed right now" from here.
 
+import AppKit
 import Observation
 
 @Observable
@@ -33,5 +34,12 @@ final class AppModel {
         device.onStatusChange = { [weak self] text in self?.statusText = text }
         device.onDisconnect = { [weak self] in self?.remapper.releaseAll() }
         device.start()
+
+        // When the app quits, give the Tartarus its normal keys back.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.device.stop()
+        }
     }
 }

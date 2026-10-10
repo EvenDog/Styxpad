@@ -7,6 +7,8 @@ struct EditorView: View {
     @Environment(AppModel.self) private var model
     @State private var selectedKeyID: String?
     @State private var layer: Layer = .normal
+    // The name box only appears while renaming, so it can't grab key presses when the window opens.
+    @State private var isRenaming = false
 
     var body: some View {
         @Bindable var store = model.store
@@ -20,8 +22,14 @@ struct EditorView: View {
                     }
                 }
                 .frame(width: 220)
-                TextField("Name", text: $store.activeProfile.name)
-                    .frame(width: 150)
+                if isRenaming {
+                    TextField("Name", text: $store.activeProfile.name)
+                        .frame(width: 150)
+                        .onSubmit { isRenaming = false }   // pressing Return finishes renaming
+                    Button("Done") { isRenaming = false }
+                } else {
+                    Button("Rename") { isRenaming = true }
+                }
                 Button("New Profile") { store.addProfile() }
                 Button("Delete Profile") { store.deleteActiveProfile() }
                     .disabled(store.profiles.count < 2)
