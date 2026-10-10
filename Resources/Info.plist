@@ -8,6 +8,8 @@
 	<string>com.danielschultz.Styxpad</string>
 	<key>CFBundleName</key>
 	<string>Styxpad</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
 	<string>Styxpad</string>
 	<key>CFBundlePackageType</key>

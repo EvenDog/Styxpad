@@ -10,9 +10,10 @@ swift build -c release
 
 APP="build/Styxpad.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Styxpad "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/"   # the app icon (made by Design/make-icon.swift)
 
 # Sign with your Apple Development certificate. A stable signature means macOS
 # keeps your granted permissions after each rebuild.
