@@ -11,11 +11,12 @@ struct StyxpadApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        Window("Tartarus Key Mapper", id: "editor") {
-            EditorView()
+        Window("Styxpad", id: "editor") {
+            MainWindowView()
                 .environment(model)
         }
-        .windowResizability(.contentSize)
+        .defaultSize(width: 1100, height: 860)
+        .windowToolbarStyle(.unified(showsTitle: false))   // the STYXPAD wordmark replaces the title
 
         MenuBarExtra {
             MenuContent()
@@ -73,7 +74,7 @@ struct MenuContent: View {
         }
         .pickerStyle(.inline)
         Divider()
-        Button("Edit Key Mappings…") {
+        Button("Open Styxpad…") {
             openWindow(id: "editor")
             NSApp.activate()   // menu bar apps don't come to the front on their own
         }

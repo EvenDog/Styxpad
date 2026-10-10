@@ -8,10 +8,19 @@ import Observation
 final class AppModel {
     let store: ProfileStore
     var statusText = "Starting…"
+    var isConnected = false
     /// The physical keys currently held on the Tartarus, so the editor can highlight them.
     var livePressedKeyIDs: Set<String> = []
     /// True while the Hypershift key is held, so the editor can show the Hypershift layer.
     var isHypershiftHeld = false
+    /// When each key was last pressed (seconds since 2001, the clock SwiftUI's TimelineView
+    /// uses), so the on-screen Reactive lighting preview can flash it.
+    var lastPressTimes: [String: Double] = [:]
+
+    /// The active profile's position in the list (0, 1 or 2) — also which side light is on.
+    var activeProfileIndex: Int? {
+        store.profiles.firstIndex { $0.id == store.activeProfileID }
+    }
 
     // "@ObservationIgnored" = the UI doesn't need to watch these, so don't track them.
     @ObservationIgnored private let device = TartarusDevice()
@@ -42,13 +51,22 @@ final class AppModel {
             remapper.handle(hidUsage: usage, isDown: isDown)
             isHypershiftHeld = remapper.isHypershiftHeld
             if let keyID = TartarusLayout.key(forHIDUsage: usage)?.id {
-                if isDown { livePressedKeyIDs.insert(keyID) } else { livePressedKeyIDs.remove(keyID) }
+                if isDown {
+                    livePressedKeyIDs.insert(keyID)
+                    lastPressTimes[keyID] = Date().timeIntervalSinceReferenceDate
+                } else {
+                    livePressedKeyIDs.remove(keyID)
+                }
             } else if isDown {
                 // Helps us fix TartarusLayout.swift if a key sends something unexpected.
                 print("Styxpad: unrecognized key \(KeyCodes.name(forHIDUsage: usage))")
             }
         }
-        device.onStatusChange = { [weak self] text in self?.statusText = text }
+        device.onStatusChange = { [weak self] text in
+            guard let self else { return }
+            statusText = text
+            isConnected = device.isConnected
+        }
         device.onDisconnect = { [weak self] in
             guard let self else { return }
             remapper.releaseAll()

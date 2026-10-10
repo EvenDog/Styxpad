@@ -88,4 +88,7 @@ struct BacklightSettings: Codable, Equatable {
     var speed: EffectSpeed = .medium
     var direction: WaveDirection = .right
     var brightness: Double = 1.0          // 0.0 (off) to 1.0 (full)
+
+    /// Whether the effect moves, so the on-screen preview needs to keep redrawing.
+    var isAnimated: Bool { effect != .off && effect != .staticColor }
 }

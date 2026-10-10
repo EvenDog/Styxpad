@@ -1,62 +1,135 @@
-// The "Lighting" tab of the editor: choose the active profile's backlight effect, colors,
-// speed, direction and brightness. Only the controls that matter for the chosen effect appear.
+// The lighting panel: choose the active profile's backlight effect, colors, speed, direction
+// and brightness. Only the controls that matter for the chosen effect appear.
 
 import SwiftUI
 
 struct LightingEditorView: View {
+    let profileTitle: String
     @Binding var settings: BacklightSettings
 
+    /// Ready-made colors offered as swatches (plus a custom color picker).
+    private let swatches: [(name: String, color: RGBColor)] = [
+        ("Teal", RGBColor(red: 0x5E, green: 0xEA, blue: 0xD4)),
+        ("Sky", RGBColor(red: 0x7D, green: 0xD3, blue: 0xFC)),
+        ("Violet", RGBColor(red: 0xA7, green: 0x8B, blue: 0xFA)),
+        ("Ember", RGBColor(red: 0xFB, green: 0x92, blue: 0x3C)),
+        ("Green", RGBColor(red: 0x3D, green: 0xDC, blue: 0x84)),
+        ("White", RGBColor(red: 0xF1, green: 0xF5, blue: 0xF9)),
+    ]
+
     var body: some View {
-        // "Form" lays out labeled controls in neat aligned rows, like System Settings.
-        Form {
-            Picker("Effect", selection: $settings.effect) {
-                ForEach(LightingEffect.allCases) { Text($0.rawValue).tag($0) }
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("BACKLIGHT")
+                    .font(Theme.display(12))
+                    .tracking(2.6)
+                    .foregroundStyle(Theme.textMuted)
+                Text(profileTitle)
+                    .font(.system(size: 17, weight: .bold))
+            }
+
+            section("Effect") {
+                // A 3-column grid of effect buttons.
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                    ForEach(LightingEffect.allCases) { effect in
+                        let isSelected = settings.effect == effect
+                        Button { settings.effect = effect } label: {
+                            Text(effect.rawValue)
+                                .font(.system(size: 13, weight: isSelected ? .bold : .regular))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
+                                .background(RoundedRectangle(cornerRadius: 10).fill(isSelected ? Theme.riverDeep : Color.clear))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isSelected ? Theme.river : Theme.borderStrong))
+                                .contentShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             if settings.effect.usesColorMode {
-                Picker("Colors", selection: $settings.colorMode) {
-                    ForEach(ColorMode.allCases) { Text($0.rawValue).tag($0) }
+                section("Colors") {
+                    PillPicker(options: ColorMode.allCases.map { ($0.rawValue, $0) }, selection: $settings.colorMode)
                 }
-                .pickerStyle(.segmented)
             }
 
             // Colors: hidden for random mode and for effects that pick their own colors.
             if settings.effect.usesColor && !(settings.effect.usesColorMode && settings.colorMode == .random) {
-                ColorPicker("Color", selection: colorBinding(\.color1), supportsOpacity: false)
+                section(settings.colorMode == .dual && settings.effect.usesColorMode ? "First color" : "Color") {
+                    swatchRow(for: \.color1)
+                }
                 if settings.effect.usesColorMode && settings.colorMode == .dual {
-                    ColorPicker("Second color", selection: colorBinding(\.color2), supportsOpacity: false)
+                    section("Second color") {
+                        swatchRow(for: \.color2)
+                    }
                 }
             }
 
             if settings.effect.usesSpeed {
-                Picker("Speed", selection: $settings.speed) {
-                    ForEach(EffectSpeed.allCases) { Text($0.rawValue).tag($0) }
+                section("Speed") {
+                    PillPicker(options: EffectSpeed.allCases.map { ($0.rawValue, $0) }, selection: $settings.speed)
                 }
-                .pickerStyle(.segmented)
             }
 
             if settings.effect.usesDirection {
-                Picker("Direction", selection: $settings.direction) {
-                    ForEach(WaveDirection.allCases) { Text($0.rawValue).tag($0) }
+                section("Direction") {
+                    PillPicker(options: WaveDirection.allCases.map { ($0.rawValue, $0) }, selection: $settings.direction)
                 }
-                .pickerStyle(.segmented)
             }
 
             if settings.effect != .off {
-                Slider(value: $settings.brightness, in: 0...1) {
-                    Text("Brightness")
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Brightness").foregroundStyle(Theme.textSecondary)
+                        Spacer()
+                        Text("\(Int((settings.brightness * 100).rounded()))%").foregroundStyle(Theme.textMuted)
+                    }
+                    Slider(value: $settings.brightness, in: 0...1)
+                        .tint(Theme.river)
+                        .accessibilityLabel("Brightness")
                 }
             }
+
+            Text("The side lights always show the active profile: I, II or III.")
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: 420, alignment: .leading)
+        .padding(22)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Theme.border))
     }
 
-    /// The color pickers work with SwiftUI's Color, so convert to/from our RGBColor.
+    /// A titled group of controls.
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).foregroundStyle(Theme.textSecondary)
+            content()
+        }
+    }
+
+    /// Round color swatches plus the system color picker for any other color.
     /// `\.color1` is a "key path": a reference to a property, so one function serves both colors.
-    private func colorBinding(_ keyPath: WritableKeyPath<BacklightSettings, RGBColor>) -> Binding<Color> {
-        Binding(
-            get: { settings[keyPath: keyPath].swiftUIColor },
-            set: { settings[keyPath: keyPath] = RGBColor($0) }
-        )
+    private func swatchRow(for keyPath: WritableKeyPath<BacklightSettings, RGBColor>) -> some View {
+        HStack(spacing: 10) {
+            ForEach(swatches, id: \.name) { swatch in
+                let isSelected = settings[keyPath: keyPath] == swatch.color
+                Button { settings[keyPath: keyPath] = swatch.color } label: {
+                    Circle()
+                        .fill(swatch.color.swiftUIColor)
+                        .frame(width: 26, height: 26)
+                        .overlay(Circle().strokeBorder(Theme.text, lineWidth: isSelected ? 2 : 0))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(swatch.name)
+                .help(swatch.name)
+            }
+            ColorPicker("Custom color", selection: Binding(
+                get: { settings[keyPath: keyPath].swiftUIColor },
+                set: { settings[keyPath: keyPath] = RGBColor($0) }
+            ), supportsOpacity: false)
+            .labelsHidden()
+            .help("Pick any color")
+        }
     }
 }

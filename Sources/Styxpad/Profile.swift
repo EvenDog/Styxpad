@@ -165,10 +165,11 @@ final class ProfileStore {
         activeProfileID = profiles[(index + 1) % profiles.count].id   // % = remainder, so it wraps to 0
     }
 
-    func deleteActiveProfile() {
+    /// Deletes a profile (there must always be at least one left).
+    func deleteProfile(_ id: UUID) {
         guard profiles.count > 1 else { return }
-        profiles.removeAll { $0.id == activeProfileID }
-        activeProfileID = profiles[0].id
+        profiles.removeAll { $0.id == id }
+        if activeProfileID == id { activeProfileID = profiles[0].id }
     }
 
     private func save() {

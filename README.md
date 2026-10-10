@@ -30,8 +30,10 @@ On first launch macOS asks for two permissions. Turn both on in
 1. `TartarusDevice.swift` finds the Tartarus over USB and listens to its keys. It mutes the
    Tartarus's own keys with Apple's `hidutil` (for that device only; undone when the app quits).
 2. `Remapper.swift` looks up each press in the active profile and types the replacement.
-3. `EditorView.swift` is the window where you click a key and record what it should type.
+3. `MainWindow.swift` is the window: click a key on the drawing (`DeviceView.swift`) and a
+   popover lets you record what it should type; the Lighting tab edits the backlight.
 4. `RazerProtocol.swift` builds the lighting commands (side lights and backlight effects).
+5. `Theme.swift` holds the "Styx" colors and fonts.
 
 If the Tartarus's keys stop working after Styxpad crashes, unplug it and plug it back in.
 

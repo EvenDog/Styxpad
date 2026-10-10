@@ -26,6 +26,7 @@ final class TartarusDevice {
     private let razerVendorID = 0x1532   // every Razer USB product uses this vendor number
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
     private var openDevices: [IOHIDDevice] = []
+    var isConnected: Bool { !openDevices.isEmpty }
     /// The part of the Tartarus that accepts Razer commands. Per OpenRazer this is USB
     /// interface 2, which macOS shows as the "mouse" part (usage page 1, usage 2).
     private var commandDevice: IOHIDDevice?
