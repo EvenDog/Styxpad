@@ -9,3 +9,4 @@ build/
 # Xcode per-user settings (created if you open the project in Xcode)
 .swiftpm/
 xcuserdata/
+release/
