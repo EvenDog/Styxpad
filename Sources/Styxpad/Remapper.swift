@@ -3,6 +3,12 @@
 // by sending a synthetic key event to macOS (using CGEvent, part of Core Graphics).
 
 import CoreGraphics
+import os
+
+/// Debug messages for troubleshooting. Watch them live in Terminal with:
+///   log stream --level debug --predicate 'subsystem == "com.danielschultz.Styxpad"'
+/// Debug-level messages are only kept while someone is watching; they're never saved to disk.
+private let log = Logger(subsystem: "com.danielschultz.Styxpad", category: "remapper")
 
 final class Remapper {
     private let store: ProfileStore
@@ -10,6 +16,7 @@ final class Remapper {
 
     /// The USB code of the Hypershift key while it's being held (nil when not held).
     private var heldHypershiftUsage: UInt32?
+    var isHypershiftHeld: Bool { heldHypershiftUsage != nil }
 
     /// What each currently-held Tartarus key typed when pressed. We remember this so the
     /// release always matches the press, even if you let go of Hypershift or switch
@@ -24,6 +31,12 @@ final class Remapper {
     func handle(hidUsage: UInt32, isDown: Bool) {
         let profile = store.activeProfile
         let physicalKey = TartarusLayout.key(forHIDUsage: hidUsage)
+        log.debug("""
+            \(isDown ? "DOWN" : "UP  ", privacy: .public) key \(physicalKey?.id ?? "?", privacy: .public) \
+            (HID 0x\(String(hidUsage, radix: 16), privacy: .public)) — \
+            hypershift held: \(self.heldHypershiftUsage != nil, privacy: .public), \
+            hypershift key: \(profile.hypershiftKeyID ?? "none", privacy: .public)
+            """)
 
         // The Hypershift key itself types nothing; it just switches layers while held.
         if !isDown && hidUsage == heldHypershiftUsage {
@@ -70,6 +83,7 @@ final class Remapper {
 
     /// Types one key down or up, with the right modifier flags attached.
     private func post(_ action: KeyAction, isDown: Bool) {
+        log.debug("  → typing \(action.displayName, privacy: .public) \(isDown ? "down" : "up", privacy: .public)")
         guard let event = CGEvent(keyboardEventSource: eventSource, virtualKey: action.keyCode, keyDown: isDown) else { return }
 
         // Modifier keys (Shift, Control, ...) are reported to macOS as a "flags changed"

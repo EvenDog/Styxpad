@@ -9,6 +9,9 @@
 
 import Foundation
 import IOKit.hid
+import os
+
+private let log = Logger(subsystem: "com.danielschultz.Styxpad", category: "device")
 
 final class TartarusDevice {
     /// Called for every key press (true) or release (false), with the key's USB HID code.
@@ -24,13 +27,9 @@ final class TartarusDevice {
 
     /// Starts watching for the Tartarus being plugged in (including if it's already plugged in).
     func start() {
-        // Only look at Razer devices that act as a keyboard. This leaves the Tartarus's
-        // mouse part (the scroll wheel) alone so it keeps working normally.
-        let matching: [String: Any] = [
-            kIOHIDVendorIDKey: razerVendorID,
-            kIOHIDDeviceUsagePageKey: kHIDPage_GenericDesktop,
-            kIOHIDDeviceUsageKey: kHIDUsage_GD_Keyboard,
-        ]
+        // Look at every part of any Razer device (the Tartarus appears as several: keyboard,
+        // mouse, ...). We only listen, so the scroll wheel keeps working normally.
+        let matching: [String: Any] = [kIOHIDVendorIDKey: razerVendorID]
         IOHIDManagerSetDeviceMatching(manager, matching as CFDictionary)
 
         // IOKit is a C API, so its callbacks can't capture Swift variables. Instead we pass
@@ -54,7 +53,15 @@ final class TartarusDevice {
         guard productName.localizedCaseInsensitiveContains("Tartarus") else { return }
 
         let result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        let primaryUsagePage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? Int ?? -1
+        let primaryUsage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString) as? Int ?? -1
+        log.debug("""
+            found \(productName, privacy: .public) part: page 0x\(String(primaryUsagePage, radix: 16), privacy: .public) \
+            usage 0x\(String(primaryUsage, radix: 16), privacy: .public), open result 0x\(String(UInt32(bitPattern: result), radix: 16), privacy: .public)
+            """)
         guard result == kIOReturnSuccess else {
+            // Some parts of the device may refuse to open; that's fine as long as one part works.
+            guard openDevices.isEmpty else { return }
             let code = String(format: "0x%08X", UInt32(bitPattern: result))
             onStatusChange?("Found \(productName) but couldn't read it (error \(code)). "
                 + "Check Input Monitoring permission, then quit and reopen the app.")
@@ -122,8 +129,18 @@ final class TartarusDevice {
     /// Called for every change in the device's state; we keep only keyboard key presses/releases.
     private func inputReceived(_ value: IOHIDValue) {
         let element = IOHIDValueGetElement(value)
-        guard IOHIDElementGetUsagePage(element) == UInt32(kHIDPage_KeyboardOrKeypad) else { return }
+        let usagePage = IOHIDElementGetUsagePage(element)
         let usage = IOHIDElementGetUsage(element)
+        guard usagePage == UInt32(kHIDPage_KeyboardOrKeypad) else {
+            // Not a normal key (e.g. scroll wheel, or a special button). Logged so we can
+            // discover what buttons like the profile switch send.
+            log.debug("""
+                other input: page 0x\(String(usagePage, radix: 16), privacy: .public) \
+                usage 0x\(String(usage, radix: 16), privacy: .public) \
+                value \(IOHIDValueGetIntegerValue(value), privacy: .public)
+                """)
+            return
+        }
         // 0x04...0xE7 are real keys; values outside that are housekeeping (e.g. "too many keys").
         guard (0x04...0xE7).contains(usage) else { return }
         let isPressed = IOHIDValueGetIntegerValue(value) != 0

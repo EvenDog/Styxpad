@@ -42,6 +42,14 @@ struct EditorView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 260)
+                if model.isHypershiftHeld {
+                    Text("HYPERSHIFT ACTIVE")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.orange))
+                        .foregroundStyle(.white)
+                }
                 Spacer()
                 Picker("Hypershift key", selection: $store.activeProfile.hypershiftKeyID) {
                     Text("None").tag(String?.none)
@@ -52,11 +60,12 @@ struct EditorView: View {
                 .frame(width: 240)
             }
 
+            // While Hypershift is physically held, show what each key does in that layer.
             TartarusPictureView(
                 profile: store.activeProfile,
-                layer: layer,
+                layer: model.isHypershiftHeld ? .hypershift : layer,
                 selectedKeyID: $selectedKeyID,
-                livePressedKeyID: model.livePressedKeyID
+                livePressedKeyIDs: model.livePressedKeyIDs
             )
 
             Divider()
@@ -84,7 +93,7 @@ struct TartarusPictureView: View {
     let profile: Profile
     let layer: Layer
     @Binding var selectedKeyID: String?
-    let livePressedKeyID: String?
+    let livePressedKeyIDs: Set<String>
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 40) {
@@ -131,7 +140,7 @@ struct TartarusPictureView: View {
             mappingText: mappingText,
             isCustom: customAction != nil || isHypershiftKey,
             isSelected: key.id == selectedKeyID,
-            isLivePressed: key.id == livePressedKeyID,
+            isLivePressed: livePressedKeyIDs.contains(key.id),
             width: width
         )
         .onTapGesture { selectedKeyID = key.id }

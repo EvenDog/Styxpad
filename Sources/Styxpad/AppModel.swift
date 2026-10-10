@@ -8,8 +8,10 @@ import Observation
 final class AppModel {
     let store: ProfileStore
     var statusText = "Starting…"
-    /// The physical key currently held on the Tartarus, so the editor can highlight it.
-    var livePressedKeyID: String?
+    /// The physical keys currently held on the Tartarus, so the editor can highlight them.
+    var livePressedKeyIDs: Set<String> = []
+    /// True while the Hypershift key is held, so the editor can show the Hypershift layer.
+    var isHypershiftHeld = false
 
     // "@ObservationIgnored" = the UI doesn't need to watch these, so don't track them.
     @ObservationIgnored private let device = TartarusDevice()
@@ -25,14 +27,21 @@ final class AppModel {
         device.onKey = { [weak self] usage, isDown in
             guard let self else { return }
             remapper.handle(hidUsage: usage, isDown: isDown)
-            livePressedKeyID = isDown ? TartarusLayout.key(forHIDUsage: usage)?.id : nil
-            if isDown && TartarusLayout.key(forHIDUsage: usage) == nil {
+            isHypershiftHeld = remapper.isHypershiftHeld
+            if let keyID = TartarusLayout.key(forHIDUsage: usage)?.id {
+                if isDown { livePressedKeyIDs.insert(keyID) } else { livePressedKeyIDs.remove(keyID) }
+            } else if isDown {
                 // Helps us fix TartarusLayout.swift if a key sends something unexpected.
                 print("Styxpad: unrecognized key \(KeyCodes.name(forHIDUsage: usage))")
             }
         }
         device.onStatusChange = { [weak self] text in self?.statusText = text }
-        device.onDisconnect = { [weak self] in self?.remapper.releaseAll() }
+        device.onDisconnect = { [weak self] in
+            guard let self else { return }
+            remapper.releaseAll()
+            livePressedKeyIDs = []
+            isHypershiftHeld = false
+        }
         device.start()
 
         // When the app quits, give the Tartarus its normal keys back.
