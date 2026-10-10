@@ -1,6 +1,6 @@
 // The data the user edits: what each Tartarus key should do, grouped into named profiles,
 // plus ProfileStore, which keeps the list of profiles and saves it to disk as JSON
-// (~/Library/Application Support/TartarusMac/profiles.json).
+// (~/Library/Application Support/Styxpad/profiles.json).
 
 import AppKit
 import Observation
@@ -93,7 +93,7 @@ final class ProfileStore {
     }
 
     private static var fileURL: URL {
-        URL.applicationSupportDirectory.appending(path: "TartarusMac/profiles.json")
+        URL.applicationSupportDirectory.appending(path: "Styxpad/profiles.json")
     }
 
     init() {
@@ -140,7 +140,7 @@ final class ProfileStore {
             let data = try encoder.encode(SavedData(profiles: profiles, activeProfileID: activeProfileID))
             try data.write(to: Self.fileURL)
         } catch {
-            print("TartarusMac: couldn't save profiles: \(error)")
+            print("Styxpad: couldn't save profiles: \(error)")
         }
     }
 }

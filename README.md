@@ -1,4 +1,6 @@
-# TartarusMac
+# Styxpad
+
+*Key remapping for Razer Tartarus keypads on macOS.*
 
 A small "Razer Synapse" replacement for macOS: remap the keys on a Razer Tartarus Pro,
 with profiles and a Hypershift layer.
@@ -6,8 +8,8 @@ with profiles and a Hypershift layer.
 ## Build & run
 
 ```bash
-./build-app.sh             # builds build/TartarusMac.app
-open build/TartarusMac.app # launches it (look for the keyboard icon in the menu bar)
+./build-app.sh             # builds build/Styxpad.app
+open build/Styxpad.app     # launches it (look for the keyboard icon in the menu bar)
 ```
 
 On first launch macOS asks for two permissions. Turn both on in
@@ -22,7 +24,7 @@ On first launch macOS asks for two permissions. Turn both on in
 2. `Remapper.swift` looks up each press in the active profile and types the replacement.
 3. `EditorView.swift` is the window where you click a key and record what it should type.
 
-Profiles are saved in `~/Library/Application Support/TartarusMac/profiles.json`.
+Profiles are saved in `~/Library/Application Support/Styxpad/profiles.json`.
 
 ## Not supported
 
@@ -33,5 +35,5 @@ Razer's private, undocumented protocol. Remaps only work while the app is runnin
 
 MIT — see [LICENSE](LICENSE).
 
-TartarusMac is an independent project and is not affiliated with or endorsed by Razer Inc.
+Styxpad is an independent project and is not affiliated with or endorsed by Razer Inc.
 "Razer" and "Tartarus" are trademarks of Razer Inc.

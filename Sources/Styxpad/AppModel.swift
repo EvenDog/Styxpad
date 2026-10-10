@@ -27,7 +27,7 @@ final class AppModel {
             livePressedKeyID = isDown ? TartarusLayout.key(forHIDUsage: usage)?.id : nil
             if isDown && TartarusLayout.key(forHIDUsage: usage) == nil {
                 // Helps us fix TartarusLayout.swift if a key sends something unexpected.
-                print("TartarusMac: unrecognized key \(KeyCodes.name(forHIDUsage: usage))")
+                print("Styxpad: unrecognized key \(KeyCodes.name(forHIDUsage: usage))")
             }
         }
         device.onStatusChange = { [weak self] text in self?.statusText = text }

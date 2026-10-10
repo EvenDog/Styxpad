@@ -5,7 +5,7 @@
 import SwiftUI
 
 @main
-struct TartarusMacApp: App {
+struct StyxpadApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
@@ -48,7 +48,7 @@ struct MenuContent: View {
             Button("Grant Permissions…") { Permissions.openSettings() }
         }
         Divider()
-        Button("Quit TartarusMac") { NSApp.terminate(nil) }
+        Button("Quit Styxpad") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 }

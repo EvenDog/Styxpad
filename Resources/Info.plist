@@ -5,11 +5,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.danielschultz.TartarusMac</string>
+	<string>com.danielschultz.Styxpad</string>
 	<key>CFBundleName</key>
-	<string>TartarusMac</string>
+	<string>Styxpad</string>
 	<key>CFBundleExecutable</key>
-	<string>TartarusMac</string>
+	<string>Styxpad</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
