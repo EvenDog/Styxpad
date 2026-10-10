@@ -51,6 +51,12 @@ final class Remapper {
         if isDown {
             guard pressedActions[hidUsage] == nil else { return }   // ignore duplicate "down" reports
             guard let action = action(for: hidUsage, physicalKey: physicalKey, in: profile) else { return }
+            if action.command == .nextProfile {
+                // Commands type nothing, so there's nothing to remember for the release.
+                store.selectNextProfile()
+                log.debug("  → switched to profile \(self.store.activeProfile.name, privacy: .public)")
+                return
+            }
             pressedActions[hidUsage] = action
             post(action, isDown: true)
         } else {

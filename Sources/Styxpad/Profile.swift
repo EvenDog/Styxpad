@@ -43,12 +43,25 @@ struct Modifiers: OptionSet, Codable, Hashable {
     }
 }
 
-/// What a Tartarus key should type: one key, optionally with modifiers (a shortcut like ⌘C).
+/// Special things a key can do instead of typing.
+enum Command: String, Codable {
+    case nextProfile   // switch to the next profile in the list
+}
+
+/// What a Tartarus key should do: type one key, optionally with modifiers (a shortcut like ⌘C),
+/// or — when `command` is set — run a command instead of typing anything.
 struct KeyAction: Codable, Equatable {
     var keyCode: UInt16
     var modifiers: Modifiers = []
+    var command: Command? = nil   // optional, so profiles saved before commands existed still load
 
-    var displayName: String { modifiers.symbols + KeyCodes.name(forMacKeyCode: keyCode) }
+    /// The "Next Profile" mapping. (keyCode is ignored when a command is set.)
+    static let nextProfile = KeyAction(keyCode: 0, command: .nextProfile)
+
+    var displayName: String {
+        if command == .nextProfile { return "Next Profile" }
+        return modifiers.symbols + KeyCodes.name(forMacKeyCode: keyCode)
+    }
 }
 
 /// The two layers: what keys do normally, and what they do while the Hypershift key is held.
@@ -65,6 +78,14 @@ struct Profile: Codable, Identifiable, Equatable {
     var hypershiftKeyID: String?                 // which physical key acts as Hypershift (nil = none)
     var normalLayer: [String: KeyAction] = [:]   // physical key id → action
     var hypershiftLayer: [String: KeyAction] = [:]
+
+    /// A fresh profile. The Side button starts out as "Next Profile", so you can always switch
+    /// away from it (you can still remap Side in the editor).
+    static func makeNew(named name: String) -> Profile {
+        var profile = Profile(name: name)
+        profile.normalLayer[TartarusLayout.sideButton.id] = .nextProfile
+        return profile
+    }
 
     func action(for keyID: String, in layer: Layer) -> KeyAction? {
         layer == .normal ? normalLayer[keyID] : hypershiftLayer[keyID]
@@ -83,8 +104,11 @@ struct Profile: Codable, Identifiable, Equatable {
 /// "@Observable" lets SwiftUI views redraw automatically when these properties change.
 @Observable
 final class ProfileStore {
-    var profiles: [Profile] { didSet { save() } }
-    var activeProfileID: UUID { didSet { save() } }
+    var profiles: [Profile] { didSet { save(); onChange?() } }
+    var activeProfileID: UUID { didSet { save(); onChange?() } }
+
+    /// Called after any change (switching profile, editing a mapping, ...).
+    @ObservationIgnored var onChange: (() -> Void)?
 
     /// The format of the JSON file on disk.
     private struct SavedData: Codable {
@@ -103,7 +127,7 @@ final class ProfileStore {
             profiles = saved.profiles
             activeProfileID = saved.activeProfileID
         } else {
-            let first = Profile(name: "Default")
+            let first = Profile.makeNew(named: "Default")
             profiles = [first]
             activeProfileID = first.id
         }
@@ -119,10 +143,20 @@ final class ProfileStore {
         }
     }
 
+    /// One profile per side light on the Tartarus, so there can be at most 3.
+    static let maxProfiles = 3
+
     func addProfile() {
-        let profile = Profile(name: "Profile \(profiles.count + 1)")
+        guard profiles.count < Self.maxProfiles else { return }
+        let profile = Profile.makeNew(named: "Profile \(profiles.count + 1)")
         profiles.append(profile)
         activeProfileID = profile.id
+    }
+
+    /// Makes the next profile in the list active, wrapping around to the first after the last.
+    func selectNextProfile() {
+        guard let index = profiles.firstIndex(where: { $0.id == activeProfileID }) else { return }
+        activeProfileID = profiles[(index + 1) % profiles.count].id   // % = remainder, so it wraps to 0
     }
 
     func deleteActiveProfile() {

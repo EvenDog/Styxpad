@@ -5,6 +5,11 @@
 A small "Razer Synapse" replacement for macOS: remap the keys on a Razer Tartarus Pro,
 with profiles and a Hypershift layer.
 
+- **Remap** any key to another key or a shortcut (e.g. ⌘Z).
+- **Hypershift:** hold a chosen key to give every other key a second function.
+- **3 profiles**, one per side light. The Side button switches profiles (by default) and the
+  side lights show which one is active.
+
 ## Build & run
 
 ```bash
@@ -20,16 +25,23 @@ On first launch macOS asks for two permissions. Turn both on in
 
 ## How it works
 
-1. `TartarusDevice.swift` finds the Tartarus over USB and takes exclusive control of its keys.
+1. `TartarusDevice.swift` finds the Tartarus over USB and listens to its keys. It mutes the
+   Tartarus's own keys with Apple's `hidutil` (for that device only; undone when the app quits).
 2. `Remapper.swift` looks up each press in the active profile and types the replacement.
 3. `EditorView.swift` is the window where you click a key and record what it should type.
+4. `RazerProtocol.swift` builds the commands that switch the side lights.
+
+If the Tartarus's keys stop working after Styxpad crashes, unplug it and plug it back in.
 
 Profiles are saved in `~/Library/Application Support/Styxpad/profiles.json`.
 
 ## Not supported
 
-RGB lighting, actuation-point settings, and saving to the device's onboard memory all use
-Razer's private, undocumented protocol. Remaps only work while the app is running.
+Backlight effects, actuation-point settings, and onboard key storage aren't supported.
+Remaps only work while the app is running.
+
+The side-light commands use Razer's undocumented protocol, implemented from public research
+by the [OpenRazer](https://github.com/openrazer/openrazer) and CommandPost projects.
 
 ## License
 

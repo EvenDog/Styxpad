@@ -16,6 +16,17 @@ final class AppModel {
     // "@ObservationIgnored" = the UI doesn't need to watch these, so don't track them.
     @ObservationIgnored private let device = TartarusDevice()
     @ObservationIgnored private let remapper: Remapper
+    /// Which profile (by position in the list) the side lights currently show, so we only
+    /// send a command when it changes — not on every rename or key mapping edit.
+    @ObservationIgnored private var shownProfileIndex: Int?
+
+    /// Which of the 3 side lights is on for each profile: one light per profile
+    /// (that's why ProfileStore allows at most 3 profiles).
+    private static let sideLightPatterns: [(light1: Bool, light2: Bool, light3: Bool)] = [
+        (true, false, false),   // profile 1
+        (false, true, false),   // profile 2
+        (false, false, true),   // profile 3
+    ]
 
     init() {
         let store = ProfileStore()
@@ -41,7 +52,16 @@ final class AppModel {
             remapper.releaseAll()
             livePressedKeyIDs = []
             isHypershiftHeld = false
+            shownProfileIndex = nil
         }
+
+        // Keep the side lights showing which profile is active.
+        store.onChange = { [weak self] in self?.updateSideLights() }
+        device.onLightingReady = { [weak self] in
+            self?.shownProfileIndex = nil   // freshly connected: we don't know what it's showing
+            self?.updateSideLights()
+        }
+
         device.start()
 
         // When the app quits, give the Tartarus its normal keys back.
@@ -49,6 +69,18 @@ final class AppModel {
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
             self?.device.stop()
+        }
+    }
+
+    /// Lights up the side light(s) for the active profile, unless they already show it.
+    private func updateSideLights() {
+        guard let index = store.profiles.firstIndex(where: { $0.id == store.activeProfileID }),
+              index != shownProfileIndex else { return }
+        let pattern = Self.sideLightPatterns[index % Self.sideLightPatterns.count]
+        let report = RazerProtocol.sideLightsReport(light1: pattern.light1, light2: pattern.light2, light3: pattern.light3)
+        // Only remember it as shown if the Tartarus actually answered (it may not be plugged in).
+        if device.sendCommand(report) != nil {
+            shownProfileIndex = index
         }
     }
 }

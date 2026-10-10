@@ -31,6 +31,8 @@ struct EditorView: View {
                     Button("Rename") { isRenaming = true }
                 }
                 Button("New Profile") { store.addProfile() }
+                    .disabled(store.profiles.count >= ProfileStore.maxProfiles)
+                    .help("Up to \(ProfileStore.maxProfiles) profiles — one for each side light")
                 Button("Delete Profile") { store.deleteActiveProfile() }
                     .disabled(store.profiles.count < 2)
             }
@@ -209,6 +211,8 @@ struct KeyDetailView: View {
                     Button("Cancel") { stopRecording() }
                 } else {
                     Button("Record New Key") { startRecording() }
+                    Button("Next Profile") { profile.setAction(.nextProfile, for: key.id, in: layer) }
+                        .help("Make this key switch to the next profile")
                     Button("Reset") { profile.setAction(nil, for: key.id, in: layer) }
                         .disabled(profile.action(for: key.id, in: layer) == nil)
                 }

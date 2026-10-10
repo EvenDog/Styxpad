@@ -20,10 +20,15 @@ final class TartarusDevice {
     var onStatusChange: ((String) -> Void)?
     /// Called when the last Tartarus interface disappears (e.g. unplugged).
     var onDisconnect: (() -> Void)?
+    /// Called when the part of the Tartarus that accepts lighting commands is ready.
+    var onLightingReady: (() -> Void)?
 
     private let razerVendorID = 0x1532   // every Razer USB product uses this vendor number
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
     private var openDevices: [IOHIDDevice] = []
+    /// The part of the Tartarus that accepts Razer commands. Per OpenRazer this is USB
+    /// interface 2, which macOS shows as the "mouse" part (usage page 1, usage 2).
+    private var commandDevice: IOHIDDevice?
 
     /// Starts watching for the Tartarus being plugged in (including if it's already plugged in).
     func start() {
@@ -77,11 +82,17 @@ final class TartarusDevice {
 
         openDevices.append(device)
         onStatusChange?("Connected: \(productName)")
+
+        if primaryUsagePage == kHIDPage_GenericDesktop && primaryUsage == kHIDUsage_GD_Mouse {
+            commandDevice = device
+            onLightingReady?()
+        }
     }
 
     private func deviceDisappeared(_ device: IOHIDDevice) {
         guard openDevices.contains(where: { $0 === device }) else { return }
         openDevices.removeAll { $0 === device }
+        if device === commandDevice { commandDevice = nil }
         if openDevices.isEmpty {
             onStatusChange?("Tartarus not connected")
             onDisconnect?()
@@ -92,6 +103,26 @@ final class TartarusDevice {
     /// (If the app crashes instead, unplugging and replugging the Tartarus also resets it.)
     func stop() {
         for device in openDevices { setKeysMuted(false, on: device) }
+    }
+
+    /// Sends one Razer command (see RazerProtocol) and returns the device's 90-byte reply,
+    /// or nil if the Tartarus isn't connected or the message couldn't be sent.
+    @discardableResult
+    func sendCommand(_ report: [UInt8]) -> [UInt8]? {
+        guard let commandDevice else { return nil }
+        // Report ID 0 = "this device doesn't number its reports", so the bytes are sent as-is.
+        let sendResult = IOHIDDeviceSetReport(commandDevice, kIOHIDReportTypeFeature, 0, report, report.count)
+        guard sendResult == kIOReturnSuccess else { return nil }
+
+        usleep(1000)   // give the device a moment (1 ms) to process before reading its reply
+        var reply = [UInt8](repeating: 0, count: report.count)
+        var replyLength = reply.count
+        let readResult = IOHIDDeviceGetReport(commandDevice, kIOHIDReportTypeFeature, 0, &reply, &replyLength)
+        log.debug("""
+            command class 0x\(String(report[6], radix: 16), privacy: .public) id 0x\(String(report[7], radix: 16), privacy: .public) \
+            → reply status 0x\(String(reply[0], radix: 16), privacy: .public) (02 = success)
+            """)
+        return readResult == kIOReturnSuccess ? reply : nil
     }
 
     /// Mutes (or un-mutes) every known Tartarus key at the macOS level, for this device only.
