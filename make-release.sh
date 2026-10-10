@@ -37,13 +37,8 @@ echo "==> Signing the app"
 codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
-echo "==> Making the DMG"
-# The DMG holds the app plus a shortcut to Applications, so people can drag one onto the other.
-STAGING=$(mktemp -d)
-cp -R "$APP" "$STAGING/"
-ln -s /Applications "$STAGING/Applications"
-hdiutil create -volname "Styxpad" -srcfolder "$STAGING" -format UDZO -ov "$DMG"
-rm -rf "$STAGING"
+# The styled "drag Styxpad into Applications" DMG (see make-dmg.sh).
+./make-dmg.sh "$APP" "$DMG"
 codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 
 echo "==> Notarizing (uploading to Apple; usually takes a few minutes)"
