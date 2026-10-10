@@ -7,6 +7,8 @@ import SwiftUI
 @main
 struct StyxpadApp: App {
     @State private var model = AppModel()
+    // Connects our AppDelegate (below) so we hear app-level events like "reopen".
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         Window("Tartarus Key Mapper", id: "editor") {
@@ -15,10 +17,41 @@ struct StyxpadApp: App {
         }
         .windowResizability(.contentSize)
 
-        MenuBarExtra("Tartarus", systemImage: "keyboard") {
+        MenuBarExtra {
             MenuContent()
                 .environment(model)
+        } label: {
+            MenuBarIcon()
         }
+    }
+}
+
+extension Notification.Name {
+    /// Broadcast inside the app when the editor window should be shown.
+    static let showEditor = Notification.Name("showEditor")
+}
+
+/// Receives app-level events from macOS. "Reopen" is what macOS sends when you open
+/// (double-click, `open`, Spotlight) an app that's already running.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        // Only SwiftUI views can open windows, so ask the menu bar icon (always alive) to do it.
+        NotificationCenter.default.post(name: .showEditor, object: nil)
+        return true
+    }
+}
+
+/// The keyboard icon in the menu bar. Besides being the icon, it listens for the
+/// "show the editor" broadcast and opens the window.
+struct MenuBarIcon: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: "keyboard")
+            .onReceive(NotificationCenter.default.publisher(for: .showEditor)) { _ in
+                openWindow(id: "editor")
+                NSApp.activate()   // menu bar apps don't come to the front on their own
+            }
     }
 }
 
