@@ -78,11 +78,12 @@ struct Profile: Codable, Identifiable, Equatable {
     var hypershiftKeyID: String?                 // which physical key acts as Hypershift (nil = none)
     var normalLayer: [String: KeyAction] = [:]   // physical key id → action
     var hypershiftLayer: [String: KeyAction] = [:]
+    var backlight: BacklightSettings?            // optional only so profiles saved before lighting still load
 
     /// A fresh profile. The Side button starts out as "Next Profile", so you can always switch
     /// away from it (you can still remap Side in the editor).
     static func makeNew(named name: String) -> Profile {
-        var profile = Profile(name: name)
+        var profile = Profile(name: name, backlight: BacklightSettings())
         profile.normalLayer[TartarusLayout.sideButton.id] = .nextProfile
         return profile
     }
@@ -130,6 +131,11 @@ final class ProfileStore {
             let first = Profile.makeNew(named: "Default")
             profiles = [first]
             activeProfileID = first.id
+        }
+
+        // Profiles saved before lighting settings existed get the default backlight.
+        for index in profiles.indices where profiles[index].backlight == nil {
+            profiles[index].backlight = BacklightSettings()
         }
     }
 

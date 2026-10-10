@@ -19,6 +19,8 @@ final class AppModel {
     /// Which profile (by position in the list) the side lights currently show, so we only
     /// send a command when it changes — not on every rename or key mapping edit.
     @ObservationIgnored private var shownProfileIndex: Int?
+    /// The backlight settings the Tartarus is currently showing (same idea as above).
+    @ObservationIgnored private var shownBacklight: BacklightSettings?
 
     /// Which of the 3 side lights is on for each profile: one light per profile
     /// (that's why ProfileStore allows at most 3 profiles).
@@ -53,13 +55,17 @@ final class AppModel {
             livePressedKeyIDs = []
             isHypershiftHeld = false
             shownProfileIndex = nil
+            shownBacklight = nil
         }
 
-        // Keep the side lights showing which profile is active.
-        store.onChange = { [weak self] in self?.updateSideLights() }
+        // Keep the side lights showing which profile is active, and the backlight showing
+        // that profile's lighting.
+        store.onChange = { [weak self] in self?.updateLighting() }
         device.onLightingReady = { [weak self] in
-            self?.shownProfileIndex = nil   // freshly connected: we don't know what it's showing
-            self?.updateSideLights()
+            // Freshly connected: we don't know what it's showing, so send everything.
+            self?.shownProfileIndex = nil
+            self?.shownBacklight = nil
+            self?.updateLighting()
         }
 
         device.start()
@@ -72,6 +78,11 @@ final class AppModel {
         }
     }
 
+    private func updateLighting() {
+        updateSideLights()
+        updateBacklight()
+    }
+
     /// Lights up the side light(s) for the active profile, unless they already show it.
     private func updateSideLights() {
         guard let index = store.profiles.firstIndex(where: { $0.id == store.activeProfileID }),
@@ -82,5 +93,25 @@ final class AppModel {
         if device.sendCommand(report) != nil {
             shownProfileIndex = index
         }
+    }
+
+    /// Sends the active profile's backlight effect and brightness — only the parts that changed.
+    private func updateBacklight() {
+        let settings = store.activeProfile.backlight ?? BacklightSettings()
+        guard settings != shownBacklight else { return }
+
+        // Brightness is its own command. Compare everything *except* brightness to decide whether
+        // the effect needs resending, so dragging the brightness slider only sends brightness.
+        var newIgnoringBrightness = settings
+        newIgnoringBrightness.brightness = 0
+        var shownIgnoringBrightness = shownBacklight
+        shownIgnoringBrightness?.brightness = 0
+        if newIgnoringBrightness != shownIgnoringBrightness {
+            guard device.sendCommand(RazerProtocol.backlightEffectReport(settings)) != nil else { return }
+        }
+        if settings.brightness != shownBacklight?.brightness {
+            guard device.sendCommand(RazerProtocol.brightnessReport(settings.brightness)) != nil else { return }
+        }
+        shownBacklight = settings
     }
 }

@@ -1,5 +1,7 @@
-// The editor window: pick a profile, see a picture of the Tartarus with each key's current
-// mapping, click a key, then press the key or shortcut you want it to type.
+// The editor window: pick a profile, then either
+// - Keys: see a picture of the Tartarus with each key's mapping, click a key, and record
+//   the key or shortcut it should type, or
+// - Lighting: choose the profile's backlight effect, colors and brightness.
 
 import SwiftUI
 
@@ -9,6 +11,13 @@ struct EditorView: View {
     @State private var layer: Layer = .normal
     // The name box only appears while renaming, so it can't grab key presses when the window opens.
     @State private var isRenaming = false
+    @State private var tab: EditorTab = .keys
+
+    enum EditorTab: String, CaseIterable, Identifiable {
+        case keys = "Keys"
+        case lighting = "Lighting"
+        var id: String { rawValue }
+    }
 
     var body: some View {
         @Bindable var store = model.store
@@ -37,47 +46,63 @@ struct EditorView: View {
                     .disabled(store.profiles.count < 2)
             }
 
-            // Layer + Hypershift key
-            HStack {
-                Picker("Layer", selection: $layer) {
-                    ForEach(Layer.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 260)
-                if model.isHypershiftHeld {
-                    Text("HYPERSHIFT ACTIVE")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.orange))
-                        .foregroundStyle(.white)
-                }
-                Spacer()
-                Picker("Hypershift key", selection: $store.activeProfile.hypershiftKeyID) {
-                    Text("None").tag(String?.none)
-                    ForEach(TartarusLayout.allKeys) { key in
-                        Text("\(key.label) (\(key.defaultName))").tag(Optional(key.id))
-                    }
-                }
-                .frame(width: 240)
+            Picker("Show", selection: $tab) {
+                ForEach(EditorTab.allCases) { Text($0.rawValue).tag($0) }
             }
-
-            // While Hypershift is physically held, show what each key does in that layer.
-            TartarusPictureView(
-                profile: store.activeProfile,
-                layer: model.isHypershiftHeld ? .hypershift : layer,
-                selectedKeyID: $selectedKeyID,
-                livePressedKeyIDs: model.livePressedKeyIDs
-            )
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 200)
 
             Divider()
 
-            if let keyID = selectedKeyID, let key = TartarusLayout.key(withID: keyID) {
-                KeyDetailView(key: key, layer: layer, profile: $store.activeProfile)
-                    .id("\(keyID)-\(layer)")   // reset recording state when the selection changes
+            if tab == .lighting {
+                LightingEditorView(settings: Binding(
+                    get: { store.activeProfile.backlight ?? BacklightSettings() },
+                    set: { store.activeProfile.backlight = $0 }
+                ))
             } else {
-                Text("Click a key above to change what it does.")
-                    .foregroundStyle(.secondary)
+                // Layer + Hypershift key
+                HStack {
+                    Picker("Layer", selection: $layer) {
+                        ForEach(Layer.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 260)
+                    if model.isHypershiftHeld {
+                        Text("HYPERSHIFT ACTIVE")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.orange))
+                            .foregroundStyle(.white)
+                    }
+                    Spacer()
+                    Picker("Hypershift key", selection: $store.activeProfile.hypershiftKeyID) {
+                        Text("None").tag(String?.none)
+                        ForEach(TartarusLayout.allKeys) { key in
+                            Text("\(key.label) (\(key.defaultName))").tag(Optional(key.id))
+                        }
+                    }
+                    .frame(width: 240)
+                }
+
+                // While Hypershift is physically held, show what each key does in that layer.
+                TartarusPictureView(
+                    profile: store.activeProfile,
+                    layer: model.isHypershiftHeld ? .hypershift : layer,
+                    selectedKeyID: $selectedKeyID,
+                    livePressedKeyIDs: model.livePressedKeyIDs
+                )
+
+                Divider()
+
+                if let keyID = selectedKeyID, let key = TartarusLayout.key(withID: keyID) {
+                    KeyDetailView(key: key, layer: layer, profile: $store.activeProfile)
+                        .id("\(keyID)-\(layer)")   // reset recording state when the selection changes
+                } else {
+                    Text("Click a key above to change what it does.")
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer(minLength: 0)
@@ -86,7 +111,7 @@ struct EditorView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(20)
-        .frame(width: 720, height: 560)
+        .frame(width: 720, height: 620)
     }
 }
 

@@ -9,6 +9,8 @@ with profiles and a Hypershift layer.
 - **Hypershift:** hold a chosen key to give every other key a second function.
 - **3 profiles**, one per side light. The Side button switches profiles (by default) and the
   side lights show which one is active.
+- **Backlight effects per profile:** static, breathing, spectrum, wave, reactive, starlight
+  or off, with colors, speed, direction and brightness.
 
 ## Build & run
 
@@ -29,7 +31,7 @@ On first launch macOS asks for two permissions. Turn both on in
    Tartarus's own keys with Apple's `hidutil` (for that device only; undone when the app quits).
 2. `Remapper.swift` looks up each press in the active profile and types the replacement.
 3. `EditorView.swift` is the window where you click a key and record what it should type.
-4. `RazerProtocol.swift` builds the commands that switch the side lights.
+4. `RazerProtocol.swift` builds the lighting commands (side lights and backlight effects).
 
 If the Tartarus's keys stop working after Styxpad crashes, unplug it and plug it back in.
 
@@ -37,10 +39,10 @@ Profiles are saved in `~/Library/Application Support/Styxpad/profiles.json`.
 
 ## Not supported
 
-Backlight effects, actuation-point settings, and onboard key storage aren't supported.
+Per-key colors, actuation-point settings, and onboard key storage aren't supported.
 Remaps only work while the app is running.
 
-The side-light commands use Razer's undocumented protocol, implemented from public research
+The lighting commands use Razer's undocumented protocol, implemented from public research
 by the [OpenRazer](https://github.com/openrazer/openrazer) and CommandPost projects.
 
 ## License
