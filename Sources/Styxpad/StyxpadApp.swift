@@ -52,12 +52,39 @@ struct MenuBarIcon: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: "keyboard")
+        Image(nsImage: Self.keycapIcon)
             .onReceive(NotificationCenter.default.publisher(for: .showEditor)) { _ in
                 openWindow(id: "editor")
                 NSApp.activate()   // menu bar apps don't come to the front on their own
             }
     }
+
+    /// A small keycap outline with a carved "S" — a tiny version of the app icon.
+    /// It's a "template" image: drawn in black only, and macOS tints it to match the
+    /// menu bar (white in dark mode, black in light mode).
+    static let keycapIcon: NSImage = {
+        let image = NSImage(size: NSSize(width: 22, height: 18), flipped: false) { _ in
+            let keycap = NSRect(x: 3.5, y: 1.5, width: 15, height: 15)
+            NSColor.black.setStroke()
+            let outline = NSBezierPath(roundedRect: keycap, xRadius: 3.2, yRadius: 3.2)
+            outline.lineWidth = 1.5
+            outline.stroke()
+
+            let centered = NSMutableParagraphStyle()
+            centered.alignment = .center
+            let letter = NSAttributedString(string: "S", attributes: [
+                .font: NSFont(name: "Optima-Bold", size: 12) ?? .boldSystemFont(ofSize: 12),
+                .foregroundColor: NSColor.black,
+                .paragraphStyle: centered,
+            ])
+            let height = letter.size().height
+            letter.draw(in: NSRect(x: keycap.minX, y: keycap.midY - height / 2, width: keycap.width, height: height))
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Styxpad"
+        return image
+    }()
 }
 
 /// The items shown when you click the menu bar icon.
