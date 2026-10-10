@@ -9,6 +9,8 @@ final class AppModel {
     let store: ProfileStore
     var statusText = "Starting…"
     var isConnected = false
+    /// A Tartarus is plugged in but macOS won't let us read it yet (see the welcome screen).
+    var deviceAccessDenied = false
     /// The physical keys currently held on the Tartarus, so the editor can highlight them.
     var livePressedKeyIDs: Set<String> = []
     /// True while the Hypershift key is held, so the editor can show the Hypershift layer.
@@ -44,7 +46,10 @@ final class AppModel {
         self.store = store
         self.remapper = Remapper(store: store)
 
-        Permissions.requestMissing()
+        // Before the welcome screen is done, it asks for permissions itself (with explanations).
+        if UserDefaults.standard.bool(forKey: WelcomeView.completedKey) {
+            Permissions.requestMissing()
+        }
 
         device.onKey = { [weak self] usage, isDown in
             guard let self else { return }
@@ -66,6 +71,7 @@ final class AppModel {
             guard let self else { return }
             statusText = text
             isConnected = device.isConnected
+            deviceAccessDenied = device.accessDenied
         }
         device.onDisconnect = { [weak self] in
             guard let self else { return }

@@ -18,6 +18,10 @@ struct StyxpadApp: App {
         .defaultSize(width: 1100, height: 860)
         .windowToolbarStyle(.unified(showsTitle: false))   // the STYXPAD wordmark replaces the title
 
+        Settings {
+            SettingsView()
+        }
+
         MenuBarExtra {
             MenuContent()
                 .environment(model)
@@ -81,6 +85,9 @@ struct MenuContent: View {
         if !Permissions.canReadInput || !Permissions.canSendKeys {
             Button("Grant Permissions…") { Permissions.openSettings() }
         }
+        SettingsLink { Text("Settings…") }
+            .keyboardShortcut(",")
+        Button("About Styxpad") { showAboutPanel() }
         Divider()
         Button("Quit Styxpad") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

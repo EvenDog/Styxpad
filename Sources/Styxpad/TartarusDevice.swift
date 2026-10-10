@@ -27,6 +27,8 @@ final class TartarusDevice {
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
     private var openDevices: [IOHIDDevice] = []
     var isConnected: Bool { !openDevices.isEmpty }
+    /// True when a Tartarus is plugged in but macOS refused to let us read it (missing permission).
+    private(set) var accessDenied = false
     /// The part of the Tartarus that accepts Razer commands. Per OpenRazer this is USB
     /// interface 2, which macOS shows as the "mouse" part (usage page 1, usage 2).
     private var commandDevice: IOHIDDevice?
@@ -68,11 +70,13 @@ final class TartarusDevice {
         guard result == kIOReturnSuccess else {
             // Some parts of the device may refuse to open; that's fine as long as one part works.
             guard openDevices.isEmpty else { return }
+            accessDenied = true
             let code = String(format: "0x%08X", UInt32(bitPattern: result))
             onStatusChange?("Found \(productName) but couldn't read it (error \(code)). "
                 + "Check Input Monitoring permission, then quit and reopen the app.")
             return
         }
+        accessDenied = false
         setKeysMuted(true, on: device)
 
         let context = Unmanaged.passUnretained(self).toOpaque()

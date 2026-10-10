@@ -14,16 +14,22 @@ enum EditorTab: String, CaseIterable {
 struct MainWindowView: View {
     @Environment(AppModel.self) private var model
     @State private var tab: EditorTab = .keys
+    // "@AppStorage" = a setting saved in the app's preferences that SwiftUI also watches.
+    @AppStorage(WelcomeView.completedKey) private var hasCompletedWelcome = false
 
     var body: some View {
         VStack(spacing: 0) {
             RiverLine()
-            if !model.isConnected {
-                ConnectionBanner()
-            }
-            switch tab {
-            case .keys: KeysScreen()
-            case .lighting: LightingScreen()
+            if !hasCompletedWelcome {
+                WelcomeView { hasCompletedWelcome = true }
+            } else {
+                if !model.isConnected {
+                    ConnectionBanner()
+                }
+                switch tab {
+                case .keys: KeysScreen()
+                case .lighting: LightingScreen()
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -36,13 +42,21 @@ struct MainWindowView: View {
                     .tracking(3.5)
                     .padding(.leading, 8)
             }
-            ToolbarItem(placement: .principal) {
-                ProfileSwitcher()
-            }
-            ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 14) {
-                    PillPicker(options: EditorTab.allCases.map { ($0.rawValue, $0) }, selection: $tab)
-                    ConnectionDot()
+            if hasCompletedWelcome {
+                ToolbarItem(placement: .principal) {
+                    ProfileSwitcher()
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    HStack(spacing: 14) {
+                        PillPicker(options: EditorTab.allCases.map { ($0.rawValue, $0) }, selection: $tab)
+                        ConnectionDot()
+                        SettingsLink {
+                            Image(systemName: "gearshape")
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Settings")
+                    }
                 }
             }
         }
