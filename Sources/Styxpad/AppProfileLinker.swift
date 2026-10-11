@@ -13,6 +13,11 @@ final class AppProfileLinker {
     /// you changed it yourself (Side button or the window), so we leave your choice alone.
     private var profileChosenByApp: UUID?
 
+    /// Apps that never change the profile. Parallels' main app comes to the front a moment after
+    /// any Windows app does (checked with Hatch in Coherence mode), so it mustn't count as
+    /// "you left the linked app".
+    private static let ignoredAppIDs: Set<String> = ["com.parallels.desktop.console"]
+
     init(store: ProfileStore) {
         self.store = store
         // macOS announces every time a different app comes to the front.
@@ -27,7 +32,8 @@ final class AppProfileLinker {
 
     private func appCameToFront(_ bundleID: String?) {
         // Opening Styxpad's own window doesn't count, so you can edit the profile you're in.
-        guard let bundleID, bundleID != Bundle.main.bundleIdentifier else { return }
+        guard let bundleID, bundleID != Bundle.main.bundleIdentifier,
+              !Self.ignoredAppIDs.contains(bundleID) else { return }
         let stillOnAppsChoice = profileChosenByApp != nil && store.activeProfileID == profileChosenByApp
 
         if let linkedProfile = store.profiles.first(where: { $0.linkedAppIDs?.contains(bundleID) == true }) {
