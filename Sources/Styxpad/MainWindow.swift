@@ -79,8 +79,9 @@ struct MainWindowView: View {
 
 // MARK: - Title bar pieces
 
-/// The I · II · III profile pills. Right-click one to rename, export or delete it;
-/// the + menu adds a new or imported profile.
+/// The profile dropdown: a pill showing the active profile. Clicking it lists all profiles
+/// (with their side-light patterns) to switch between, and adds, imports, renames, exports
+/// or deletes profiles.
 struct ProfileSwitcher: View {
     @Environment(AppModel.self) private var model
     @State private var renamingProfileID: UUID?
@@ -89,54 +90,57 @@ struct ProfileSwitcher: View {
 
     var body: some View {
         @Bindable var store = model.store
+        let active = store.activeProfile
+        let activeIndex = model.activeProfileIndex ?? 0
+        let activeName = active.name.isEmpty ? "Untitled" : active.name
+        let isFull = store.profiles.count >= ProfileStore.maxProfiles
 
-        HStack(spacing: 0) {
-            ForEach(Array(store.profiles.enumerated()), id: \.element.id) { index, profile in
-                let isActive = profile.id == store.activeProfileID
-                Button { store.activeProfileID = profile.id } label: {
-                    HStack(spacing: 7) {
-                        Text(romanNumeral(index + 1))
-                            .font(Theme.display(13))
-                            .foregroundStyle(isActive ? Theme.riverInk : Theme.textMuted)
-                        Text(profile.name.isEmpty ? "Untitled" : profile.name)
-                            .font(.system(size: 13, weight: isActive ? .bold : .medium))
-                            .foregroundStyle(isActive ? Theme.riverInk : Theme.textSecondary)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(isActive ? Theme.river : Color.clear))
-                    .contentShape(Capsule())
+        Menu {
+            // An inline Picker inside a menu shows as a plain list of items with a ✓ on the chosen one.
+            Picker("Profile", selection: $store.activeProfileID) {
+                ForEach(Array(store.profiles.enumerated()), id: \.element.id) { index, profile in
+                    Text("\(lightDots(index))   \(romanNumeral(index + 1))   \(profile.name.isEmpty ? "Untitled" : profile.name)")
+                        .tag(profile.id)
                 }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    Button("Rename…") {
-                        renameText = profile.name
-                        renamingProfileID = profile.id
-                    }
-                    Button("Export…") { export(profile) }
-                    Button("Delete", role: .destructive) { store.deleteProfile(profile.id) }
-                        .disabled(store.profiles.count < 2)
-                }
-                .help("Profile \(romanNumeral(index + 1)) — side light \(index + 1). Right-click to rename, export or delete.")
             }
-            if store.profiles.count < ProfileStore.maxProfiles {
-                Menu {
-                    Button("New Profile") { store.addProfile() }
-                    Button("Import Profile…") { importProfile() }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .frame(width: 28, height: 26)
-                .help("New or imported profile (up to \(ProfileStore.maxProfiles), one for each side light)")
+            .pickerStyle(.inline)
+            Divider()
+            Button("New Profile") { store.addProfile() }
+                .disabled(isFull)
+            Button("Import Profile…") { importProfile() }
+                .disabled(isFull)
+            Divider()
+            Button("Rename “\(activeName)”…") {
+                renameText = active.name
+                renamingProfileID = active.id
             }
+            Button("Export “\(activeName)”…") { export(active) }
+            Button("Delete “\(activeName)”", role: .destructive) { store.deleteProfile(active.id) }
+                .disabled(store.profiles.count < 2)
+        } label: {
+            HStack(spacing: 7) {
+                Text(romanNumeral(activeIndex + 1))
+                    .font(Theme.display(13))
+                Text(activeName)
+                    .font(.system(size: 13, weight: .bold))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(Theme.riverInk)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Theme.river))
+            .contentShape(Capsule())
         }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
         .padding(3)
         .background(Capsule().fill(Theme.raised))
         .overlay(Capsule().strokeBorder(Theme.border))
+        .help("Profile \(romanNumeral(activeIndex + 1)) — side lights \(lightDots(activeIndex)) (top to bottom). "
+            + "Click to switch, add or import profiles (up to \(ProfileStore.maxProfiles)), or to rename, export or delete this one.")
         .alert("Rename Profile", isPresented: Binding(get: { renamingProfileID != nil },
                                                     set: { if !$0 { renamingProfileID = nil } })) {
             TextField("Name", text: $renameText)
@@ -152,6 +156,12 @@ struct ProfileSwitcher: View {
         } message: {
             Text("It isn't a profile exported from Styxpad or Razer Synapse.")
         }
+    }
+
+    /// A profile's side-light pattern as dots, top light first: "●○○" for profile I.
+    private func lightDots(_ index: Int) -> String {
+        let patterns = TartarusLayout.profileLightPatterns
+        return patterns[index % patterns.count].map { $0 ? "●" : "○" }.joined()
     }
 
     /// Saves one profile (plus the macros it uses) to a file you choose.
@@ -331,7 +341,7 @@ struct KeysScreen: View {
                         profile: store.activeProfile,
                         layer: model.isHypershiftHeld ? .hypershift : layer,
                         pressedKeyIDs: model.livePressedKeyIDs,
-                        activeSideLight: model.activeProfileIndex,
+                        activeProfileIndex: model.activeProfileIndex,
                         scale: scale,
                         time: time,
                         lastPressTimes: model.lastPressTimes,
@@ -715,7 +725,7 @@ struct LightingScreen: View {
                         profile: store.activeProfile,
                         layer: .normal,
                         pressedKeyIDs: model.livePressedKeyIDs,
-                        activeSideLight: model.activeProfileIndex,
+                        activeProfileIndex: model.activeProfileIndex,
                         scale: fitScale(for: geometry.size),
                         time: time,
                         lastPressTimes: model.lastPressTimes,

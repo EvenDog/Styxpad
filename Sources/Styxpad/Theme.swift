@@ -38,9 +38,9 @@ extension Color {
     }
 }
 
-/// Roman numerals for profile numbers: 1 → I, 2 → II, 3 → III.
+/// Roman numerals for profile numbers: 1 → I, 2 → II … 6 → VI.
 func romanNumeral(_ number: Int) -> String {
-    ["I", "II", "III", "IV", "V"][min(max(number, 1), 5) - 1]
+    ["I", "II", "III", "IV", "V", "VI"][min(max(number, 1), 6) - 1]
 }
 
 /// The rounded "pill" buttons used throughout the Styx look.

@@ -246,8 +246,8 @@ final class ProfileStore {
         }
     }
 
-    /// One profile per side light on the Tartarus, so there can be at most 3.
-    static let maxProfiles = 3
+    /// One profile per side-light pattern on the Tartarus (see TartarusLayout), so at most 6.
+    static let maxProfiles = TartarusLayout.profileLightPatterns.count
 
     func addProfile() {
         guard profiles.count < Self.maxProfiles else { return }
@@ -327,7 +327,7 @@ final class ProfileStore {
     }
 
     /// Adds a profile from an exported file and makes it active. Throws if the file isn't
-    /// a Styxpad profile. (The caller checks there's room: at most 3 profiles.)
+    /// a Styxpad profile. (The caller checks there's room: at most maxProfiles.)
     func importProfile(from data: Data) throws {
         let file = try JSONDecoder().decode(ProfileFile.self, from: data)
         var profile = file.profile

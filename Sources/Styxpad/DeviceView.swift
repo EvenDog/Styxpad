@@ -34,8 +34,8 @@ struct DeviceView<Popover: View>: View {
     /// Which layer's mappings to print on the keys.
     let layer: Layer
     let pressedKeyIDs: Set<String>
-    /// Which side light is on (0, 1 or 2), or nil for none.
-    let activeSideLight: Int?
+    /// The active profile's position in the list, which picks the side-light pattern (nil = all off).
+    let activeProfileIndex: Int?
     /// How big to draw it: 1 = the traced size (445 × 665 points).
     let scale: CGFloat
     /// Seconds (any steadily increasing clock); drives animated lighting previews.
@@ -143,9 +143,11 @@ struct DeviceView<Popover: View>: View {
     private var sideLights: some View {
         let s = scale
         let colors: [Color] = [.orange, .green, .blue]
+        let patterns = TartarusLayout.profileLightPatterns
+        let pattern = activeProfileIndex.map { patterns[$0 % patterns.count] }
         return VStack(spacing: 9 * s) {
             ForEach(0..<3, id: \.self) { index in
-                let isOn = index == activeSideLight
+                let isOn = pattern?[index] == true
                 Capsule()
                     .fill(isOn ? colors[index] : Color(hex: 0x33353C))
                     .frame(width: 11 * s, height: 3 * s)

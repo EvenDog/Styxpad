@@ -3,7 +3,7 @@
 *Key remapping for Razer Tartarus keypads on macOS.*
 
 Razer Synapse doesn't run on the Mac, so out of the box a Tartarus Pro only types its factory
-keys. Styxpad lets you remap every key, record macros, set up three profiles, and control the lighting.
+keys. Styxpad lets you remap every key, record macros, set up six profiles, and control the lighting.
 
 ![Styxpad's Keys screen](docs/keys.png)
 
@@ -19,8 +19,8 @@ keys. Styxpad lets you remap every key, record macros, set up three profiles, an
   once, over and over while the key is held, or on and off like a switch.
 - **Turbo:** a held key repeats 5, 10 or 20 times a second.
 - **Hypershift:** hold a key of your choice to give every other key a second function.
-- **3 profiles**, one per side light. The Side button switches profiles and the side lights
-  show which one is active.
+- **6 profiles**, each with its own pattern of side lights (top, middle, bottom, top two, bottom
+  two, all three). The Side button switches profiles and the side lights show which one is active.
 - **Profiles that follow your apps:** link apps to a profile and Styxpad switches to it whenever
   one of them is in front, then switches back when you leave.
 - **Import and export** profiles to back them up or share them.

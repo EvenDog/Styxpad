@@ -64,6 +64,18 @@ enum TartarusLayout {
     static let lightOrder: [String?] =
         (1...19).map { String(format: "%02d", $0) } + [wheelLightID, "20"]   // "%02d" = two digits: 1 → "01"
 
+    /// Which of the 3 small side lights (top, middle, bottom) are on for each profile, in order:
+    /// one light each for profiles I–III, then top two, bottom two, and all three.
+    /// There's one profile per pattern, so this also sets how many profiles you can have.
+    static let profileLightPatterns: [[Bool]] = [
+        [true, false, false],   // I
+        [false, true, false],   // II
+        [false, false, true],   // III
+        [true, true, false],    // IV
+        [false, true, true],    // V
+        [true, true, true],     // VI
+    ]
+
     /// Finds which physical key sent a given USB code (nil if it's not one we know about).
     static func key(forHIDUsage usage: UInt32) -> PhysicalKey? {
         allKeys.first { $0.defaultHIDUsage == usage }

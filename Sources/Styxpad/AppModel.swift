@@ -23,7 +23,7 @@ final class AppModel {
     /// was kept. The window shows a banner about it until you dismiss it (sets this to nil).
     var unreadableProfilesCopy: URL?
 
-    /// The active profile's position in the list (0, 1 or 2) — also which side light is on.
+    /// The active profile's position in the list (0–5) — also which side-light pattern is on.
     var activeProfileIndex: Int? {
         store.profiles.firstIndex { $0.id == store.activeProfileID }
     }
@@ -44,14 +44,6 @@ final class AppModel {
     @ObservationIgnored private var lightsAreOff = false
     /// The Settings switch "Turn off the lights while your Mac sleeps or is locked".
     static let lightsOffWhileAwayKey = "turnsOffLightsWhileAway"
-
-    /// Which of the 3 side lights is on for each profile: one light per profile
-    /// (that's why ProfileStore allows at most 3 profiles).
-    private static let sideLightPatterns: [(light1: Bool, light2: Bool, light3: Bool)] = [
-        (true, false, false),   // profile 1
-        (false, true, false),   // profile 2
-        (false, false, true),   // profile 3
-    ]
 
     init() {
         let store = ProfileStore()
@@ -170,8 +162,9 @@ final class AppModel {
     private func updateSideLights() {
         guard let index = store.profiles.firstIndex(where: { $0.id == store.activeProfileID }),
               index != shownProfileIndex else { return }
-        let pattern = Self.sideLightPatterns[index % Self.sideLightPatterns.count]
-        let report = RazerProtocol.sideLightsReport(light1: pattern.light1, light2: pattern.light2, light3: pattern.light3)
+        let patterns = TartarusLayout.profileLightPatterns
+        let pattern = patterns[index % patterns.count]
+        let report = RazerProtocol.sideLightsReport(light1: pattern[0], light2: pattern[1], light3: pattern[2])
         // Only remember it as shown if the Tartarus actually answered (it may not be plugged in).
         if device.sendCommand(report) != nil {
             shownProfileIndex = index

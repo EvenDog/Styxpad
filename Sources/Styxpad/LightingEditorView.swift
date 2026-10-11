@@ -105,7 +105,7 @@ struct LightingEditorView: View {
                 }
             }
 
-            Text("The side lights always show the active profile: I, II or III.")
+            Text("The side lights always show which profile is active.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
