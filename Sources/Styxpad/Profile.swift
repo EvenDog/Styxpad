@@ -46,6 +46,37 @@ struct Modifiers: OptionSet, Codable, Hashable {
 /// Special things a key can do instead of typing.
 enum Command: String, Codable {
     case nextProfile   // switch to the next profile in the list
+    case leftClick, rightClick, middleClick, scrollUp, scrollDown
+    case playPause, nextTrack, previousTrack, volumeUp, volumeDown, mute
+    case disabled      // the key does nothing at all
+    case openApp, openWebsite, typeText   // these use KeyAction.detail
+
+    /// The groups shown in the key popover's "More Actions" menu (the last three need extra input,
+    /// so the menu lists them separately).
+    static let mouseCommands: [Command] = [.leftClick, .rightClick, .middleClick, .scrollUp, .scrollDown]
+    static let mediaCommands: [Command] = [.playPause, .nextTrack, .previousTrack, .volumeUp, .volumeDown, .mute]
+
+    /// The name shown in the menu and on the key drawing.
+    var name: String {
+        switch self {
+        case .nextProfile: "Next Profile"
+        case .leftClick: "Left Click"
+        case .rightClick: "Right Click"
+        case .middleClick: "Middle Click"
+        case .scrollUp: "Scroll Up"
+        case .scrollDown: "Scroll Down"
+        case .playPause: "Play/Pause"
+        case .nextTrack: "Next Track"
+        case .previousTrack: "Prev Track"
+        case .volumeUp: "Volume Up"
+        case .volumeDown: "Volume Down"
+        case .mute: "Mute"
+        case .disabled: "Disabled"
+        case .openApp: "Open App"
+        case .openWebsite: "Open Website"
+        case .typeText: "Type Text"
+        }
+    }
 }
 
 /// What a Tartarus key should do: type one key, optionally with modifiers (a shortcut like ⌘C),
@@ -54,13 +85,26 @@ struct KeyAction: Codable, Equatable {
     var keyCode: UInt16
     var modifiers: Modifiers = []
     var command: Command? = nil   // optional, so profiles saved before commands existed still load
+    /// Extra input for some commands: the app's file path (openApp), the web address (openWebsite)
+    /// or the text to type (typeText). Optional for the same reason as `command`.
+    var detail: String? = nil
 
     /// The "Next Profile" mapping. (keyCode is ignored when a command is set.)
     static let nextProfile = KeyAction(keyCode: 0, command: .nextProfile)
 
     var displayName: String {
-        if command == .nextProfile { return "Next Profile" }
-        return modifiers.symbols + KeyCodes.name(forMacKeyCode: keyCode)
+        guard let command else { return modifiers.symbols + KeyCodes.name(forMacKeyCode: keyCode) }
+        switch command {
+        case .openApp:
+            // e.g. "/Applications/Safari.app" → "Safari" (Finder's name for it, without ".app").
+            return detail.map { FileManager.default.displayName(atPath: $0) } ?? command.name
+        case .openWebsite:
+            return detail.flatMap { URL(string: $0)?.host() } ?? command.name   // just "youtube.com"
+        case .typeText:
+            return detail.map { "“\($0)”" } ?? command.name
+        default:
+            return command.name
+        }
     }
 }
 

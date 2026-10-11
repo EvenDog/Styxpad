@@ -249,6 +249,8 @@ struct KeyPopoverView: View {
 
     @State private var isRecording = false
     @State private var keyMonitor: Any?
+    @State private var textEntry: TextEntry?   // set while the website/text box is showing
+    @State private var enteredText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -274,19 +276,21 @@ struct KeyPopoverView: View {
                     .background(RoundedRectangle(cornerRadius: 12).fill(Theme.ink))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(isRecording ? Theme.river : Theme.border))
 
-                Button(isRecording ? "Cancel" : "Record New Key") {
-                    isRecording ? stopRecording() : startRecording()
-                }
-                .buttonStyle(PillButtonStyle(prominent: !isRecording))
-                .help("Then press the key or shortcut this Tartarus key should type")
+                if let textEntry {
+                    textEntryForm(textEntry)
+                } else {
+                    Button(isRecording ? "Cancel" : "Record New Key") {
+                        isRecording ? stopRecording() : startRecording()
+                    }
+                    .buttonStyle(PillButtonStyle(prominent: !isRecording))
+                    .help("Then press the key or shortcut this Tartarus key should type")
 
-                HStack(spacing: 8) {
-                    Button("Next Profile") { profile.setAction(.nextProfile, for: key.id, in: layer) }
-                        .buttonStyle(PillButtonStyle())
-                        .help("Make this key switch to the next profile")
-                    Button("Reset") { profile.setAction(nil, for: key.id, in: layer) }
-                        .buttonStyle(PillButtonStyle())
-                        .disabled(profile.action(for: key.id, in: layer) == nil)
+                    HStack(spacing: 8) {
+                        moreActionsMenu
+                        Button("Reset") { profile.setAction(nil, for: key.id, in: layer) }
+                            .buttonStyle(PillButtonStyle())
+                            .disabled(profile.action(for: key.id, in: layer) == nil)
+                    }
                 }
 
                 if layer == .normal {
@@ -304,6 +308,93 @@ struct KeyPopoverView: View {
         .foregroundStyle(Theme.text)
         .preferredColorScheme(.dark)
         .onDisappear { stopRecording() }
+    }
+
+    /// The menu of everything a key can do besides typing a key: mouse, media and other commands.
+    private var moreActionsMenu: some View {
+        Menu("More Actions") {
+            Section("Mouse") {
+                ForEach(Command.mouseCommands, id: \.self) { command in
+                    Button(command.name) { setCommand(command) }
+                }
+            }
+            Section("Media") {
+                ForEach(Command.mediaCommands, id: \.self) { command in
+                    Button(command.name) { setCommand(command) }
+                }
+            }
+            Section("Other") {
+                Button("Next Profile") { setCommand(.nextProfile) }
+                Button("Disable Key") { setCommand(.disabled) }
+                Button("Open App…") { chooseApp() }
+                Button("Open Website…") { startTextEntry(.website) }
+                Button("Type Text…") { startTextEntry(.text) }
+            }
+        }
+        .menuStyle(.button)
+        .buttonStyle(PillButtonStyle())
+    }
+
+    /// The two commands that need something typed in: a web address, or the text to type.
+    enum TextEntry {
+        case website, text
+    }
+
+    /// Replaces the buttons with a text box while you enter a web address or text.
+    private func textEntryForm(_ entry: TextEntry) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(entry == .website ? "Website address" : "Text to type")
+                .foregroundStyle(Theme.textSecondary)
+            TextField(entry == .website ? "example.com" : "gg wp", text: $enteredText)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { saveTextEntry(entry) }   // pressing Return saves too
+            HStack(spacing: 8) {
+                Button("Cancel") { textEntry = nil }
+                    .buttonStyle(PillButtonStyle())
+                Button("Save") { saveTextEntry(entry) }
+                    .buttonStyle(PillButtonStyle(prominent: true))
+                    .disabled(enteredText.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+    }
+
+    private func setCommand(_ command: Command, detail: String? = nil) {
+        profile.setAction(KeyAction(keyCode: 0, command: command, detail: detail), for: key.id, in: layer)
+    }
+
+    /// Opens the text box, pre-filled with the current website or text if this key already has one.
+    private func startTextEntry(_ entry: TextEntry) {
+        let current = profile.action(for: key.id, in: layer)
+        let matchingCommand: Command = entry == .website ? .openWebsite : .typeText
+        enteredText = current?.command == matchingCommand ? (current?.detail ?? "") : ""
+        textEntry = entry
+    }
+
+    private func saveTextEntry(_ entry: TextEntry) {
+        var value = enteredText
+        switch entry {
+        case .text:
+            guard !value.isEmpty else { return }
+            setCommand(.typeText, detail: value)
+        case .website:
+            value = value.trimmingCharacters(in: .whitespaces)
+            guard !value.isEmpty else { return }
+            // People usually type "youtube.com"; a browser needs the "https://" part to open it.
+            if !value.contains("://") { value = "https://" + value }
+            setCommand(.openWebsite, detail: value)
+        }
+        textEntry = nil
+    }
+
+    /// Shows the standard "choose a file" window, limited to apps, starting in Applications.
+    private func chooseApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "Choose"
+        if panel.runModal() == .OK, let url = panel.url {
+            setCommand(.openApp, detail: url.path)
+        }
     }
 
     private var currentMappingText: String {
