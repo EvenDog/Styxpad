@@ -163,10 +163,10 @@ struct DeviceView<Popover: View>: View {
         let key = TartarusLayout.sideButton
         // The Hypershift layer falls back to the Normal mapping when it has none of its own.
         let action = profile.action(for: key.id, in: layer) ?? profile.action(for: key.id, in: .normal)
-        let glow = glow(for: key, x: PadGeometry.sideButton.midX)
+        // No glow: the Side button has no backlight on the real Tartarus.
         return Circle()
             .fill(LinearGradient(colors: [Color(hex: 0x34363E), Color(hex: 0x1C1D22)], startPoint: .top, endPoint: .bottom))
-            .overlay(Circle().strokeBorder((glow?.color ?? .white).opacity(0.12 + 0.45 * (glow?.intensity ?? 0))))
+            .overlay(Circle().strokeBorder(.white.opacity(0.12)))
             .overlay {
                 if action?.command == .nextProfile {
                     Image(systemName: "arrow.triangle.2.circlepath")
@@ -180,7 +180,6 @@ struct DeviceView<Popover: View>: View {
                         .padding(3 * s)
                 }
             }
-            .shadow(color: (glow?.color ?? .clear).opacity(0.4 * (glow?.intensity ?? 0)), radius: 6)
             .modifier(KeyInteraction(key: key, isSelected: selectedKeyID == key.id, isPressed: pressedKeyIDs.contains(key.id),
                                      shape: Circle(), popoverEdge: .trailing, selectedKeyID: $selectedKeyID, popover: popover))
             .frame(width: PadGeometry.sideButton.width * s, height: PadGeometry.sideButton.height * s)
@@ -189,8 +188,6 @@ struct DeviceView<Popover: View>: View {
 
     private var dpad: some View {
         let s = scale
-        let center = CGPoint(x: PadGeometry.dpad.midX, y: PadGeometry.dpad.midY)
-        let glow = glow(for: TartarusLayout.dpadUp, x: center.x)
         // The four directions, each its own remappable key: (key, offset from center, arrow icon).
         let directions: [(PhysicalKey, CGSize, String)] = [
             (TartarusLayout.dpadUp, CGSize(width: 0, height: -22), "arrowtriangle.up.fill"),
@@ -201,8 +198,7 @@ struct DeviceView<Popover: View>: View {
         return ZStack {
             Circle()
                 .fill(RadialGradient(colors: [Color(hex: 0x383A42), Color(hex: 0x17181C)], center: UnitPoint(x: 0.5, y: 0.35), startRadius: 0, endRadius: 35 * s))
-                .overlay(Circle().strokeBorder((glow?.color ?? .white).opacity(0.12 + 0.45 * (glow?.intensity ?? 0))))
-                .shadow(color: (glow?.color ?? .clear).opacity(0.4 * (glow?.intensity ?? 0)), radius: 7)
+                .overlay(Circle().strokeBorder(.white.opacity(0.12)))   // no glow: the D-pad has no backlight
             Circle()
                 .fill(LinearGradient(colors: [Color(hex: 0x2B2D33), Color(hex: 0x15161A)], startPoint: .top, endPoint: .bottom))
                 .frame(width: 26 * s, height: 26 * s)
