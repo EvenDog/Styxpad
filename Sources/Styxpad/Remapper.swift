@@ -222,6 +222,9 @@ final class Remapper {
     /// The last click, so two quick clicks of the same button count as a double-click.
     private var lastClick: (button: CGMouseButton, time: TimeInterval, count: Int64)?
 
+    /// Makes moving the mouse while a click key is held drag (see DragConverter.swift).
+    private let dragConverter = DragConverter()
+
     /// Presses or releases a mouse button wherever the pointer is. Your modifier keys apply,
     /// so ⌘ + a Tartarus "Left Click" is a ⌘-click.
     private func postMouseButton(_ button: CGMouseButton, isDown: Bool) {
@@ -248,6 +251,7 @@ final class Remapper {
         event.setIntegerValueField(.mouseEventClickState, value: lastClick?.count ?? 1)
         event.flags = currentModifierFlags()
         event.post(tap: .cghidEventTap)
+        dragConverter.buttonChanged(button, isDown: isDown)
     }
 
     /// Scrolls like a mouse wheel: positive lines scroll up, negative scroll down.
