@@ -6,6 +6,7 @@
 // - Macros: the macro library (MacrosScreen.swift).
 
 import SwiftUI
+import UniformTypeIdentifiers   // for UTType, the "kind of file" type the file picker filters by
 
 enum EditorTab: String, CaseIterable {
     case keys = "Keys"
@@ -149,7 +150,7 @@ struct ProfileSwitcher: View {
         .alert("Couldn't import that file", isPresented: $showImportError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("It isn't a profile exported from Styxpad.")
+            Text("It isn't a profile exported from Styxpad or Razer Synapse.")
         }
     }
 
@@ -166,17 +167,51 @@ struct ProfileSwitcher: View {
         }
     }
 
-    /// Lets you pick an exported profile file and adds it as a new profile.
+    /// Lets you pick an exported profile file (from Styxpad, or Razer Synapse on Windows) and adds it.
     private func importProfile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.json]
+        // compactMap drops the nil in case macOS can't make a type for ".synapse4".
+        panel.allowedContentTypes = [.json] + [UTType(filenameExtension: "synapse4")].compactMap { $0 }
         panel.prompt = "Import"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try model.store.importProfile(from: Data(contentsOf: url))
+            if url.pathExtension == "synapse4" {
+                try importFromSynapse(Data(contentsOf: url))
+            } else {
+                try model.store.importProfile(from: Data(contentsOf: url))
+            }
         } catch {
             showImportError = true
         }
+    }
+
+    /// Shows what a Razer Synapse file will turn into and what gets skipped, with a
+    /// "Turn Ctrl into ⌘" checkbox, then imports it if you click Import.
+    private func importFromSynapse(_ data: Data) throws {
+        let preview = try SynapseImport.convert(data, ctrlToCommand: true)
+        let room = ProfileStore.maxProfiles - model.store.profiles.count
+        let count = min(preview.profiles.count, room)
+        var notes = preview.notes
+        if preview.profiles.count > room {
+            let leftOut = preview.profiles.dropFirst(room).map { "“\($0.name)”" }.joined(separator: ", ")
+            notes.insert("Styxpad holds \(ProfileStore.maxProfiles) profiles, so \(leftOut) didn't fit.", at: 0)
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Import from Razer Synapse"
+        alert.informativeText = "Adds \(count == 1 ? "1 profile" : "\(count) profiles"), one for each Synapse keymap. "
+            + "Windows shortcuts use Ctrl where a Mac uses ⌘.\n\n"
+            + notes.map { "• " + $0 }.joined(separator: "\n")
+        let ctrlCheckbox = NSButton(checkboxWithTitle: "Turn Ctrl into ⌘", target: nil, action: nil)
+        ctrlCheckbox.state = .on
+        alert.accessoryView = ctrlCheckbox
+        alert.addButton(withTitle: "Import")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        // Convert again with the checkbox's choice (the preview above assumed it was on).
+        let result = try SynapseImport.convert(data, ctrlToCommand: ctrlCheckbox.state == .on)
+        model.store.importFromSynapse(profiles: Array(result.profiles.prefix(room)), macros: result.macros)
     }
 }
 

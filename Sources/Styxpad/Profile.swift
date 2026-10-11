@@ -345,6 +345,23 @@ final class ProfileStore {
         activeProfileID = profile.id
     }
 
+    /// Adds profiles and macros converted from a Razer Synapse file (see SynapseImport) and makes
+    /// the first new profile active. (The caller makes sure they fit within maxProfiles.)
+    func importFromSynapse(profiles newProfiles: [Profile], macros newMacros: [Macro]) {
+        guard let first = newProfiles.first else { return }
+        // Same as above: a macro that's already in the library isn't added twice.
+        // ("for var" lets us change the loop's copy of the macro before adding it.)
+        for var macro in newMacros where !macros.contains(where: { $0.id == macro.id }) {
+            // A different macro with the same name would be confusing in the Macros list.
+            if macros.contains(where: { $0.name == macro.name }) {
+                macro.name += " (Synapse)"
+            }
+            macros.append(macro)
+        }
+        profiles += newProfiles
+        activeProfileID = first.id
+    }
+
     private func save() {
         do {
             let folder = Self.fileURL.deletingLastPathComponent()
