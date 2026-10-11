@@ -243,7 +243,8 @@ struct DeviceView<Popover: View>: View {
         return LightingPreview.glow(
             for: profile.backlight ?? BacklightSettings(),
             position: Double(x / PadGeometry.size.width), keySeed: keySeed, time: time,
-            secondsSincePressed: lastPressTimes[key.id].map { time - $0 }
+            secondsSincePressed: lastPressTimes[key.id].map { time - $0 },
+            keyID: key.id
         )
     }
 }

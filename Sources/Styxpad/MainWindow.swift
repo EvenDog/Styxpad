@@ -658,6 +658,14 @@ struct KeyPopoverView: View {
 struct LightingScreen: View {
     @Environment(AppModel.self) private var model
 
+    /// Custom effect: colors one key with the paint color (keys without a light are ignored).
+    private func paint(_ keyID: String) {
+        let store = model.store
+        guard TartarusLayout.lightOrder.contains(keyID), var settings = store.activeProfile.backlight else { return }
+        settings.keyColors = (settings.keyColors ?? [:]).merging([keyID: settings.color1]) { _, new in new }
+        store.activeProfile.backlight = settings
+    }
+
     var body: some View {
         @Bindable var store = model.store
         let settings = store.activeProfile.backlight ?? BacklightSettings()
@@ -674,9 +682,10 @@ struct LightingScreen: View {
                         time: time,
                         lastPressTimes: model.lastPressTimes,
                         macros: store.macros,
-                        selectedKeyID: .constant(nil)
+                        // Clicking a key "selects" it; here that paints it instead (and nothing stays selected).
+                        selectedKeyID: Binding(get: { nil }, set: { keyID in if let keyID { paint(keyID) } })
                     ) { _ in EmptyView() }
-                    .allowsHitTesting(false)   // keys aren't clickable on this screen
+                    .allowsHitTesting(settings.effect == .custom)   // keys are only clickable for painting
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
             }

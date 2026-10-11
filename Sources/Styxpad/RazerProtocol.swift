@@ -51,6 +51,8 @@ enum RazerProtocol {
             effectArguments = [0x04, direction, 0x28 /* wave speed OpenRazer uses */, 0x00]
         case .reactive:
             effectArguments = [0x05, 0x00, speedByte(settings.speed), 0x01] + color1
+        case .custom:
+            return customEffectReport()   // the colors themselves go in customFrameReport
         case .starlight:
             let speed = speedByte(settings.speed)
             switch settings.colorMode {
@@ -61,6 +63,26 @@ enum RazerProtocol {
         }
         return setEffectReport(arguments: [saveToDevice, backlightLED] + effectArguments,
                                transactionID: transactionID)
+    }
+
+    /// Returns the message that sets each backlight light's color (the "custom frame").
+    /// `colors` has one color per light, in TartarusLayout.lightOrder (21 for the Tartarus Pro).
+    /// The colors only show after customEffectReport() — send this one first.
+    static func customFrameReport(colors: [RGBColor]) -> [UInt8] {
+        let lastLight = UInt8(colors.count - 1)
+        var arguments: [UInt8] = [0x00, 0x00, 0x00 /* row */, 0x00 /* first light */, lastLight]
+        for color in colors { arguments += [color.red, color.green, color.blue] }
+        // OpenRazer always sends 0x47 (71) argument bytes for this command; pad with zeros to match.
+        arguments += [UInt8](repeating: 0, count: max(0, 0x47 - arguments.count))
+        return report(commandID: 0x03, arguments: arguments)
+    }
+
+    /// Returns the message that switches the backlight to showing the custom frame.
+    /// Unlike the other effects, OpenRazer sends this one without "save to device" and with
+    /// light id 0x00, so we do the same. (Styxpad resends lighting whenever the Tartarus connects.)
+    static func customEffectReport() -> [UInt8] {
+        // OpenRazer sends 0x0C (12) argument bytes: "don't save", light 0x00, effect 0x08 = custom.
+        setEffectReport(arguments: [0x00, 0x00, 0x08] + [UInt8](repeating: 0, count: 9))
     }
 
     /// Returns the message that sets backlight brightness (0.0 = off, 1.0 = full).

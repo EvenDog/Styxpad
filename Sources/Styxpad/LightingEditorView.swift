@@ -33,7 +33,11 @@ struct LightingEditorView: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                     ForEach(LightingEffect.allCases) { effect in
                         let isSelected = settings.effect == effect
-                        Button { settings.effect = effect } label: {
+                        Button {
+                            settings.effect = effect
+                            // Starting Custom for the first time: give every key the current color.
+                            if effect == .custom && settings.keyColors == nil { fillAllKeys() }
+                        } label: {
                             Text(effect.rawValue)
                                 .font(.system(size: 13, weight: isSelected ? .bold : .regular))
                                 .frame(maxWidth: .infinity)
@@ -55,8 +59,19 @@ struct LightingEditorView: View {
 
             // Colors: hidden for random mode and for effects that pick their own colors.
             if settings.effect.usesColor && !(settings.effect.usesColorMode && settings.colorMode == .random) {
-                section(settings.colorMode == .dual && settings.effect.usesColorMode ? "First color" : "Color") {
+                section(colorSectionTitle) {
                     swatchRow(for: \.color1)
+                }
+                if settings.effect == .custom {
+                    HStack(spacing: 12) {
+                        Button("Fill All") { fillAllKeys() }
+                            .buttonStyle(PillButtonStyle())
+                            .fixedSize()
+                        Text("Click keys on the drawing to paint them.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 if settings.effect.usesColorMode && settings.colorMode == .dual {
                     section("Second color") {
@@ -101,6 +116,17 @@ struct LightingEditorView: View {
     }
 
     /// A titled group of controls.
+    private var colorSectionTitle: String {
+        if settings.effect == .custom { return "Paint color" }
+        return settings.colorMode == .dual && settings.effect.usesColorMode ? "First color" : "Color"
+    }
+
+    /// Custom effect: gives every key that has a light the current paint color.
+    private func fillAllKeys() {
+        let keyIDs = TartarusLayout.lightOrder.compactMap { $0 }   // compactMap drops the nils
+        settings.keyColors = Dictionary(uniqueKeysWithValues: keyIDs.map { ($0, settings.color1) })
+    }
+
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title).foregroundStyle(Theme.textSecondary)

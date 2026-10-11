@@ -31,6 +31,13 @@ enum TartarusLayout {
     static let allKeys: [PhysicalKey] =
         mainRows.flatMap { $0 } + [sideButton, thumbKey, dpadUp, dpadDown, dpadLeft, dpadRight]
 
+    /// The Tartarus Pro's backlight is one row of 21 lights (per OpenRazer). This says which key
+    /// each light sits under, in order: entry 0 = light 0, and so on; nil = not a key we know.
+    /// ⚠️ A GUESS until tested on the real keypad: keys 01–20 in order, and the 21st light
+    /// (maybe the scroll wheel) unknown.
+    static let lightOrder: [String?] =
+        (1...20).map { String(format: "%02d", $0) } + [nil]   // "%02d" = two digits: 1 → "01"
+
     /// Finds which physical key sent a given USB code (nil if it's not one we know about).
     static func key(forHIDUsage usage: UInt32) -> PhysicalKey? {
         allKeys.first { $0.defaultHIDUsage == usage }

@@ -186,6 +186,13 @@ final class AppModel {
         var shownIgnoringBrightness = shownBacklight
         shownIgnoringBrightness?.brightness = 0
         if newIgnoringBrightness != shownIgnoringBrightness {
+            if settings.effect == .custom {
+                // Each light's color, in the order the Tartarus numbers them; keys without a color stay dark.
+                let colors = TartarusLayout.lightOrder.map { keyID in
+                    keyID.flatMap { settings.keyColors?[$0] } ?? RGBColor(red: 0, green: 0, blue: 0)
+                }
+                guard device.sendCommand(RazerProtocol.customFrameReport(colors: colors)) != nil else { return }
+            }
             guard device.sendCommand(RazerProtocol.backlightEffectReport(settings)) != nil else { return }
         }
         if settings.brightness != shownBacklight?.brightness {

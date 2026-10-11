@@ -14,8 +14,9 @@ enum LightingPreview {
     /// - position: where the key sits horizontally, from 0 (left edge) to 1 (right edge).
     /// - keySeed: a number unique to each key, used to make "random" effects differ per key.
     /// - secondsSincePressed: for Reactive, how long ago the key was pressed (nil = not recently).
+    /// - keyID: which key, for the Custom effect's per-key colors.
     static func glow(for settings: BacklightSettings, position: Double, keySeed: Int,
-                     time: Double, secondsSincePressed: Double?) -> KeyGlow? {
+                     time: Double, secondsSincePressed: Double?, keyID: String) -> KeyGlow? {
         let color1 = settings.color1.swiftUIColor
         let color2 = settings.color2.swiftUIColor
         let glow: KeyGlow?
@@ -25,6 +26,8 @@ enum LightingPreview {
             glow = nil
         case .staticColor:
             glow = KeyGlow(color: color1, intensity: 1)
+        case .custom:
+            glow = settings.keyColors?[keyID].map { KeyGlow(color: $0.swiftUIColor, intensity: 1) }
         case .breathing:
             let breathLength = 4.0                                     // seconds per in-and-out
             let level = (1 - cos(time / breathLength * 2 * .pi)) / 2   // smoothly 0 → 1 → 0

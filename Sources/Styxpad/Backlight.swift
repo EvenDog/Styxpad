@@ -49,13 +49,14 @@ enum LightingEffect: String, Codable, CaseIterable, Identifiable {
     case wave = "Wave"
     case reactive = "Reactive"
     case starlight = "Starlight"
+    case custom = "Custom"         // each key its own color (BacklightSettings.keyColors)
     var id: String { rawValue }
 
     // Which settings matter for each effect, so the editor only shows relevant controls.
     var usesColorMode: Bool { self == .breathing || self == .starlight }
     var usesSpeed: Bool { self == .reactive || self == .starlight }
     var usesDirection: Bool { self == .wave }
-    var usesColor: Bool { self == .staticColor || self == .reactive || usesColorMode }
+    var usesColor: Bool { self == .staticColor || self == .reactive || self == .custom || usesColorMode }
 }
 
 /// For effects that support it: one color, two alternating colors, or random colors.
@@ -88,7 +89,10 @@ struct BacklightSettings: Codable, Equatable {
     var speed: EffectSpeed = .medium
     var direction: WaveDirection = .right
     var brightness: Double = 1.0          // 0.0 (off) to 1.0 (full)
+    /// For the Custom effect: each key's color, by physical key id ("01" … "20").
+    /// Keys without a color stay dark. Optional, so files saved before this existed still load.
+    var keyColors: [String: RGBColor]?
 
     /// Whether the effect moves, so the on-screen preview needs to keep redrawing.
-    var isAnimated: Bool { effect != .off && effect != .staticColor }
+    var isAnimated: Bool { effect != .off && effect != .staticColor && effect != .custom }
 }
