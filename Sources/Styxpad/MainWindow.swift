@@ -411,7 +411,7 @@ struct KeyPopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Key \(key.label)")
+                Text(key.defaultCommand == nil ? "Key \(key.label)" : key.label)   // wheel parts have their own name
                     .font(.system(size: 16, weight: .bold))
                 Spacer()
                 Text("Default \(key.defaultName)")
@@ -448,7 +448,10 @@ struct KeyPopoverView: View {
                             .disabled(profile.action(for: key.id, in: layer) == nil)
                     }
 
-                    if let action = effectiveAction, action.command == .runMacro {
+                    // Wheel up/down ticks can't be held, so playing modes and Turbo don't apply.
+                    if key.isInstant {
+                        EmptyView()
+                    } else if let action = effectiveAction, action.command == .runMacro {
                         option("Plays") {
                             PillPicker(options: MacroPlayback.allCases.map { ($0.name, $0) },
                                        selection: Binding(get: { action.playback ?? .once },
@@ -465,7 +468,7 @@ struct KeyPopoverView: View {
                     }
                 }
 
-                if layer == .normal {
+                if layer == .normal && !key.isInstant {
                     Button("Use as Hypershift Key") { profile.hypershiftKeyID = key.id }
                         .buttonStyle(.plain)
                         .foregroundStyle(Theme.textMuted)
@@ -557,9 +560,7 @@ struct KeyPopoverView: View {
             ?? defaultAction
     }
 
-    private var defaultAction: KeyAction? {
-        KeyCodes.macKeyCode(forHIDUsage: key.defaultHIDUsage).map { KeyAction(keyCode: $0) }
-    }
+    private var defaultAction: KeyAction? { key.defaultAction }
 
     /// Changes one setting (playback, turbo) of this key's mapping and saves it.
     /// "inout" lets the `change` closure edit the action in place.
@@ -661,8 +662,10 @@ struct LightingScreen: View {
     /// Custom effect: colors one key with the paint color (keys without a light are ignored).
     private func paint(_ keyID: String) {
         let store = model.store
-        guard TartarusLayout.lightOrder.contains(keyID), var settings = store.activeProfile.backlight else { return }
-        settings.keyColors = (settings.keyColors ?? [:]).merging([keyID: settings.color1]) { _, new in new }
+        // Any of the wheel's three click zones paints the wheel's one light.
+        let lightID = keyID.hasPrefix("wheel") ? TartarusLayout.wheelLightID : keyID
+        guard TartarusLayout.lightOrder.contains(lightID), var settings = store.activeProfile.backlight else { return }
+        settings.keyColors = (settings.keyColors ?? [:]).merging([lightID: settings.color1]) { _, new in new }
         store.activeProfile.backlight = settings
     }
 

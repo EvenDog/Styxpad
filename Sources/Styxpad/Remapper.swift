@@ -196,8 +196,8 @@ final class Remapper {
                 return action
             }
         }
-        // No mapping: pass the key through as whatever it sends by default.
-        return KeyCodes.macKeyCode(forHIDUsage: hidUsage).map { KeyAction(keyCode: $0) }
+        // No mapping: do what the key does by default (type its key, or for the wheel, scroll/click).
+        return physicalKey?.defaultAction ?? KeyCodes.macKeyCode(forHIDUsage: hidUsage).map { KeyAction(keyCode: $0) }
     }
 
     /// Types one key down or up, with the right modifier flags attached.

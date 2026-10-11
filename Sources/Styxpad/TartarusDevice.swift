@@ -6,6 +6,10 @@
 // `hidutil` tool) to remap every Tartarus key to "no key" — for this one device only.
 // We still receive the raw presses, because we read them straight from the USB device.
 // (Taking exclusive control of a keyboard instead would require running as root.)
+//
+// The scroll wheel is on a separate "mouse" part, and macOS does let us take exclusive control
+// ("seize") of that one. Then the wheel only talks to us, and its ticks and clicks are reported
+// as presses of the wheel's parts (see TartarusLayout.wheelUp), so they can be remapped too.
 
 import Foundation
 import IOKit.hid
@@ -32,11 +36,13 @@ final class TartarusDevice {
     /// The part of the Tartarus that accepts Razer commands. Per OpenRazer this is USB
     /// interface 2, which macOS shows as the "mouse" part (usage page 1, usage 2).
     private var commandDevice: IOHIDDevice?
+    /// True while we have exclusive control of the scroll wheel (see the note at the top).
+    private var isWheelSeized = false
 
     /// Starts watching for the Tartarus being plugged in (including if it's already plugged in).
     func start() {
         // Look at every part of any Razer device (the Tartarus appears as several: keyboard,
-        // mouse, ...). We only listen, so the scroll wheel keeps working normally.
+        // mouse, ...).
         let matching: [String: Any] = [kIOHIDVendorIDKey: razerVendorID]
         IOHIDManagerSetDeviceMatching(manager, matching as CFDictionary)
 
@@ -60,9 +66,20 @@ final class TartarusDevice {
         // Skip other Razer keyboards (e.g. a BlackWidow) — we only want the Tartarus.
         guard productName.localizedCaseInsensitiveContains("Tartarus") else { return }
 
-        let result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
         let primaryUsagePage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? Int ?? -1
         let primaryUsage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString) as? Int ?? -1
+        let isMousePart = primaryUsagePage == kHIDPage_GenericDesktop && primaryUsage == kHIDUsage_GD_Mouse
+
+        // The mouse part has the scroll wheel: try to seize it. If macOS refuses, open it
+        // normally instead; the wheel then just scrolls by itself, as if Styxpad weren't running.
+        var result = kIOReturnNotOpen
+        if isMousePart {
+            result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
+            isWheelSeized = result == kIOReturnSuccess
+        }
+        if result != kIOReturnSuccess {
+            result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        }
         log.debug("""
             found \(productName, privacy: .public) part: page 0x\(String(primaryUsagePage, radix: 16), privacy: .public) \
             usage 0x\(String(primaryUsage, radix: 16), privacy: .public), open result 0x\(String(UInt32(bitPattern: result), radix: 16), privacy: .public)
@@ -88,7 +105,7 @@ final class TartarusDevice {
         openDevices.append(device)
         onStatusChange?("Connected: \(productName)")
 
-        if primaryUsagePage == kHIDPage_GenericDesktop && primaryUsage == kHIDUsage_GD_Mouse {
+        if isMousePart {
             commandDevice = device
             onLightingReady?()
         }
@@ -97,7 +114,10 @@ final class TartarusDevice {
     private func deviceDisappeared(_ device: IOHIDDevice) {
         guard openDevices.contains(where: { $0 === device }) else { return }
         openDevices.removeAll { $0 === device }
-        if device === commandDevice { commandDevice = nil }
+        if device === commandDevice {
+            commandDevice = nil
+            isWheelSeized = false
+        }
         if openDevices.isEmpty {
             onStatusChange?("Tartarus not connected")
             onDisconnect?()
@@ -141,7 +161,7 @@ final class TartarusDevice {
         // hidutil identifies a key as (usage page << 32) | usage. Keyboard keys are on page 7,
         // and usage 0 on that page means "no key" — so mapping a key there silences it.
         let keyboardPage: UInt64 = 0x7_0000_0000
-        let mappings = muted ? TartarusLayout.allKeys.map { key in
+        let mappings = muted ? TartarusLayout.keyboardKeys.map { key in
             "{\"HIDKeyboardModifierMappingSrc\":\(keyboardPage | UInt64(key.defaultHIDUsage)),"
                 + "\"HIDKeyboardModifierMappingDst\":\(keyboardPage)}"
         } : []
@@ -162,24 +182,41 @@ final class TartarusDevice {
         }
     }
 
-    /// Called for every change in the device's state; we keep only keyboard key presses/releases.
+    /// Called for every change in the device's state; we keep key presses/releases and,
+    /// while we've seized it, the scroll wheel.
     private func inputReceived(_ value: IOHIDValue) {
         let element = IOHIDValueGetElement(value)
         let usagePage = IOHIDElementGetUsagePage(element)
         let usage = IOHIDElementGetUsage(element)
+        let number = IOHIDValueGetIntegerValue(value)
+
+        if isWheelSeized && usagePage == UInt32(kHIDPage_GenericDesktop) && usage == UInt32(kHIDUsage_GD_Wheel) {
+            // Each tick: +1 = rolled up, -1 = down (a fast spin can report several at once).
+            // A tick is reported as an instant press and release of Wheel Up or Wheel Down.
+            let part = number > 0 ? TartarusLayout.wheelUp : TartarusLayout.wheelDown
+            for _ in 0..<abs(number) {
+                onKey?(part.defaultHIDUsage, true)
+                onKey?(part.defaultHIDUsage, false)
+            }
+            return
+        }
+        if isWheelSeized && usagePage == UInt32(kHIDPage_Button) && usage == 3 {   // button 3 = clicking the wheel
+            onKey?(TartarusLayout.wheelClick.defaultHIDUsage, number != 0)
+            return
+        }
+
         guard usagePage == UInt32(kHIDPage_KeyboardOrKeypad) else {
             // Not a normal key (e.g. scroll wheel, or a special button). Logged so we can
             // discover what buttons like the profile switch send.
             log.debug("""
                 other input: page 0x\(String(usagePage, radix: 16), privacy: .public) \
                 usage 0x\(String(usage, radix: 16), privacy: .public) \
-                value \(IOHIDValueGetIntegerValue(value), privacy: .public)
+                value \(number, privacy: .public)
                 """)
             return
         }
         // 0x04...0xE7 are real keys; values outside that are housekeeping (e.g. "too many keys").
         guard (0x04...0xE7).contains(usage) else { return }
-        let isPressed = IOHIDValueGetIntegerValue(value) != 0
-        onKey?(usage, isPressed)
+        onKey?(usage, number != 0)
     }
 }

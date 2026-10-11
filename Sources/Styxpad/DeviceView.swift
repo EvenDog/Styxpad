@@ -106,6 +106,12 @@ struct DeviceView<Popover: View>: View {
     private var scrollWheel: some View {
         let s = scale
         let glow = glow(forLightID: TartarusLayout.wheelLightID, x: PadGeometry.wheel.midX)
+        // Up, Click and Down, top to bottom: each its own clickable zone, like the d-pad's arrows.
+        let zones: [(PhysicalKey, String)] = [
+            (TartarusLayout.wheelUp, "arrowtriangle.up.fill"),
+            (TartarusLayout.wheelClick, "circle.fill"),
+            (TartarusLayout.wheelDown, "arrowtriangle.down.fill"),
+        ]
         return RoundedRectangle(cornerRadius: 13 * s)
             .fill(LinearGradient(colors: [Color(hex: 0x15161A), Color(hex: 0x2B2D34), Color(hex: 0x15161A)], startPoint: .leading, endPoint: .trailing))
             .overlay(
@@ -114,12 +120,24 @@ struct DeviceView<Popover: View>: View {
                     .frame(width: 4 * s, height: 60 * s)
                     .shadow(color: glow?.color.opacity(glow?.intensity ?? 0) ?? .clear, radius: 6)
             )
+            .overlay {
+                VStack(spacing: 0) {
+                    ForEach(zones, id: \.0.id) { key, icon in
+                        let isCustom = profile.action(for: key.id, in: layer) != nil
+                        Image(systemName: icon)
+                            .font(.system(size: (key.id == TartarusLayout.wheelClick.id ? 5 : 8) * s))
+                            .foregroundStyle(isCustom ? Theme.river : .white.opacity(0.75))
+                            .shadow(color: .black, radius: 1.5)   // stays readable on top of the lit strip
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .modifier(KeyInteraction(key: key, isSelected: selectedKeyID == key.id, isPressed: false,
+                                                     shape: RoundedRectangle(cornerRadius: 6 * s), popoverEdge: .trailing,
+                                                     selectedKeyID: $selectedKeyID, popover: popover))
+                            .help("\(key.label): \(mappingText(for: key)) (\(key.defaultName) by default)")
+                    }
+                }
+            }
             .frame(width: PadGeometry.wheel.width * s, height: PadGeometry.wheel.height * s)
-            // Clickable so the Lighting tab can paint it; the Keys tab has no popover for it.
-            .contentShape(RoundedRectangle(cornerRadius: 13 * s))
-            .onTapGesture { selectedKeyID = TartarusLayout.wheelLightID }
             .offset(x: PadGeometry.wheel.minX * s, y: PadGeometry.wheel.minY * s)
-            .help("Scroll wheel (not remappable yet)")
     }
 
     private var sideLights: some View {

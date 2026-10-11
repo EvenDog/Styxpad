@@ -7,8 +7,18 @@ struct PhysicalKey: Identifiable {
     let id: String              // stable name used when saving profiles, e.g. "07" or "dpadUp"
     let label: String           // what the editor shows on the key cap
     let defaultHIDUsage: UInt32 // the USB code the key sends out of the box
+    /// For the scroll wheel's parts: what they do out of the box (they don't type a key).
+    var defaultCommand: Command? = nil
+    /// Wheel up/down: each "tick" is an instant press and release, so it can't be held.
+    var isInstant = false
 
-    var defaultName: String { KeyCodes.name(forHIDUsage: defaultHIDUsage) }
+    var defaultName: String { defaultCommand?.name ?? KeyCodes.name(forHIDUsage: defaultHIDUsage) }
+
+    /// What the key does when it has no mapping: its default command, or typing its default key.
+    var defaultAction: KeyAction? {
+        if let defaultCommand { return KeyAction(keyCode: 0, command: defaultCommand) }
+        return KeyCodes.macKeyCode(forHIDUsage: defaultHIDUsage).map { KeyAction(keyCode: $0) }
+    }
 }
 
 enum TartarusLayout {
@@ -28,8 +38,20 @@ enum TartarusLayout {
     static let dpadLeft = PhysicalKey(id: "dpadLeft", label: "◀", defaultHIDUsage: 0x50)
     static let dpadRight = PhysicalKey(id: "dpadRight", label: "▶", defaultHIDUsage: 0x4F)
 
-    static let allKeys: [PhysicalKey] =
+    // The scroll wheel's three parts. The wheel doesn't send keyboard codes, so TartarusDevice
+    // reports it with these made-up ones (above 0xFFFF, so no real key can send them).
+    static let wheelUp = PhysicalKey(id: "wheelUp", label: "Wheel Up", defaultHIDUsage: 0x1_0001,
+                                     defaultCommand: .scrollUp, isInstant: true)
+    static let wheelClick = PhysicalKey(id: "wheelClick", label: "Wheel Click", defaultHIDUsage: 0x1_0002,
+                                        defaultCommand: .middleClick)
+    static let wheelDown = PhysicalKey(id: "wheelDown", label: "Wheel Down", defaultHIDUsage: 0x1_0003,
+                                       defaultCommand: .scrollDown, isInstant: true)
+
+    /// The keys that send keyboard codes (the ones macOS needs muting for).
+    static let keyboardKeys: [PhysicalKey] =
         mainRows.flatMap { $0 } + [sideButton, thumbKey, dpadUp, dpadDown, dpadLeft, dpadRight]
+
+    static let allKeys: [PhysicalKey] = keyboardKeys + [wheelUp, wheelClick, wheelDown]
 
     /// The scroll wheel isn't a key, but it has its own light; this is its name in lightOrder
     /// and in the Custom effect's saved colors.
