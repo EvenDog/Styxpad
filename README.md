@@ -24,6 +24,10 @@ keys. Styxpad lets you remap every key, record macros, set up six profiles, and 
 - **Profiles that follow your apps:** link apps to a profile and Styxpad switches to it whenever
   one of them is in front, then switches back when you leave.
 - **Import and export** profiles to back them up or share them.
+- **Bring your Synapse setup along:** import a profile exported from Razer Synapse 4 on Windows
+  (a `.synapse4` file). Each Synapse keymap becomes a Styxpad profile, and Ctrl shortcuts can be
+  turned into ⌘ ones. Macro recordings and lighting don't come across yet; Styxpad lists what it
+  skipped.
 - **Backlight effects per profile:** static, breathing, spectrum, wave, reactive and starlight,
   with colors, speed and brightness — or paint every key its own color. Previewed live on
   screen. The lights turn off while your Mac is asleep or locked (you can change that in Settings).
@@ -32,7 +36,7 @@ keys. Styxpad lets you remap every key, record macros, set up six profiles, and 
 
 ## Install
 
-1. Download **Styxpad-0.2.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
+1. Download **Styxpad-0.3.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
 2. Open it and drag **Styxpad** into **Applications**.
 3. Open Styxpad. The welcome screen walks you through two permissions macOS requires:
    - **Input Monitoring** — so Styxpad can read your Tartarus's key presses.
