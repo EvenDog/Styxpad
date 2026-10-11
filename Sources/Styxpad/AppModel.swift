@@ -7,6 +7,7 @@ import Observation
 @Observable
 final class AppModel {
     let store: ProfileStore
+    let updates = UpdateChecker()
     var statusText = "Starting…"
     var isConnected = false
     /// A Tartarus is plugged in but macOS won't let us read it yet (see the welcome screen).

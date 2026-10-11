@@ -49,6 +49,8 @@ other Tartarus models may work for remapping but are untested.
 - Styxpad doesn't install any drivers. It mutes the Tartarus's own keys using Apple's built-in
   per-device key remapping, and gives them back when Styxpad quits.
 - If the Tartarus's keys ever stop working after Styxpad crashes, unplug it and plug it back in.
+- Once a day Styxpad asks GitHub whether a newer version has been released, and tells you if so.
+  Nothing about you is sent. You can turn this off in Settings.
 - Updating from 0.1: once you've used 0.2's new actions or macros, don't go back to 0.1. It can't
   read them and starts over with a blank profile.
 - Not supported (yet): remapping the scroll wheel, per-key colors, analog actuation settings.

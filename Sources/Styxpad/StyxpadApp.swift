@@ -20,6 +20,7 @@ struct StyxpadApp: App {
 
         Settings {
             SettingsView()
+                .environment(model)
         }
 
         MenuBarExtra {
@@ -96,6 +97,10 @@ struct MenuContent: View {
         // "@Bindable" lets us create two-way bindings ($store.something) to an @Observable object.
         @Bindable var store = model.store
 
+        if let update = model.updates.availableUpdate {
+            Button("⬆ Styxpad \(update.version) is available…") { NSWorkspace.shared.open(update.pageURL) }
+            Divider()
+        }
         Text(model.statusText)
         Divider()
         Picker("Profile", selection: $store.activeProfileID) {
