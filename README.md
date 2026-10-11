@@ -36,7 +36,7 @@ keys. Styxpad lets you remap every key, record macros, set up six profiles, and 
 
 ## Install
 
-1. Download **Styxpad-0.3.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
+1. Download **Styxpad-0.3.1.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
 2. Open it and drag **Styxpad** into **Applications**.
 3. Open Styxpad. The welcome screen walks you through two permissions macOS requires:
    - **Input Monitoring** — so Styxpad can read your Tartarus's key presses.
