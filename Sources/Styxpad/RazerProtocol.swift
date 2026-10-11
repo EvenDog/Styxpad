@@ -92,8 +92,7 @@ enum RazerProtocol {
         return report(commandID: 0x04, arguments: [saveToDevice, 0x00, value])
     }
 
-    /// Reactive and starlight take a speed of 1–3 (OpenRazer doesn't say which end is fast;
-    /// we assume 1 = fast).
+    /// Reactive and starlight take a speed of 1–3, where 1 = fast (checked on the real Tartarus).
     private static func speedByte(_ speed: EffectSpeed) -> UInt8 {
         switch speed {
         case .fast: return 0x01
