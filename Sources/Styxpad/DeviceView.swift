@@ -105,7 +105,7 @@ struct DeviceView<Popover: View>: View {
 
     private var scrollWheel: some View {
         let s = scale
-        let glow = glow(for: TartarusLayout.thumbKey, x: PadGeometry.wheel.midX)
+        let glow = glow(forLightID: TartarusLayout.wheelLightID, x: PadGeometry.wheel.midX)
         return RoundedRectangle(cornerRadius: 13 * s)
             .fill(LinearGradient(colors: [Color(hex: 0x15161A), Color(hex: 0x2B2D34), Color(hex: 0x15161A)], startPoint: .leading, endPoint: .trailing))
             .overlay(
@@ -115,6 +115,9 @@ struct DeviceView<Popover: View>: View {
                     .shadow(color: glow?.color.opacity(glow?.intensity ?? 0) ?? .clear, radius: 6)
             )
             .frame(width: PadGeometry.wheel.width * s, height: PadGeometry.wheel.height * s)
+            // Clickable so the Lighting tab can paint it; the Keys tab has no popover for it.
+            .contentShape(RoundedRectangle(cornerRadius: 13 * s))
+            .onTapGesture { selectedKeyID = TartarusLayout.wheelLightID }
             .offset(x: PadGeometry.wheel.minX * s, y: PadGeometry.wheel.minY * s)
             .help("Scroll wheel (not remappable yet)")
     }
@@ -239,12 +242,17 @@ struct DeviceView<Popover: View>: View {
     }
 
     private func glow(for key: PhysicalKey, x: CGFloat) -> KeyGlow? {
-        let keySeed = TartarusLayout.allKeys.firstIndex { $0.id == key.id } ?? 0
+        glow(forLightID: key.id, x: x)
+    }
+
+    /// Same, by id, so lights that aren't keys (the scroll wheel) can glow too.
+    private func glow(forLightID id: String, x: CGFloat) -> KeyGlow? {
+        let keySeed = TartarusLayout.allKeys.firstIndex { $0.id == id } ?? TartarusLayout.allKeys.count
         return LightingPreview.glow(
             for: profile.backlight ?? BacklightSettings(),
             position: Double(x / PadGeometry.size.width), keySeed: keySeed, time: time,
-            secondsSincePressed: lastPressTimes[key.id].map { time - $0 },
-            keyID: key.id
+            secondsSincePressed: lastPressTimes[id].map { time - $0 },
+            keyID: id
         )
     }
 }
