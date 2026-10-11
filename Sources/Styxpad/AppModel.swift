@@ -42,6 +42,8 @@ final class AppModel {
     @ObservationIgnored private var lightsOffReasons: Set<String> = []
     /// True once we've switched the lights off for one of those reasons.
     @ObservationIgnored private var lightsAreOff = false
+    /// The Settings switch "Turn off the lights while your Mac sleeps or is locked".
+    static let lightsOffWhileAwayKey = "turnsOffLightsWhileAway"
 
     /// Which of the 3 side lights is on for each profile: one light per profile
     /// (that's why ProfileStore allows at most 3 profiles).
@@ -119,7 +121,8 @@ final class AppModel {
     }
 
     private func updateLighting() {
-        guard lightsOffReasons.isEmpty else { return turnLightsOff() }
+        let shouldBeOff = !lightsOffReasons.isEmpty && UserDefaults.standard.bool(forKey: Self.lightsOffWhileAwayKey)
+        guard !shouldBeOff else { return turnLightsOff() }
         lightsAreOff = false
         updateSideLights()
         updateBacklight()
@@ -128,6 +131,7 @@ final class AppModel {
     /// Turns the Tartarus's lights off while the display sleeps, the screen is locked or the Mac
     /// sleeps, and back on when you return — so it doesn't glow all night.
     private func turnLightsOffWhileAway() {
+        UserDefaults.standard.register(defaults: [Self.lightsOffWhileAwayKey: true])   // on unless turned off
         // Each pair: the notification that starts a reason, the one that ends it, and where it's posted.
         let workspace = NSWorkspace.shared.notificationCenter
         // Screen lock isn't in Apple's documented notifications, but macOS has posted these

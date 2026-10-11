@@ -1,4 +1,4 @@
-// The Settings window (open at login, updates, permissions, welcome screen) and the About panel.
+// The Settings window (open at login, lights, updates, permissions, welcome screen) and the About panel.
 
 import ServiceManagement   // Apple's framework for login items ("open at login")
 import SwiftUI
@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(WelcomeView.completedKey) private var hasCompletedWelcome = false
     @AppStorage(UpdateChecker.automaticCheckKey) private var checksForUpdates = true
+    @AppStorage(AppModel.lightsOffWhileAwayKey) private var lightsOffWhileAway = true
     // SMAppService.mainApp = "this app" as a login item. We mirror its status in a @State
     // so the toggle can show it and change it.
     @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
@@ -30,6 +31,7 @@ struct SettingsView: View {
                     if let loginItemError {
                         Text(loginItemError).foregroundStyle(.orange)
                     }
+                    Toggle("Turn off the lights while your Mac sleeps or is locked", isOn: $lightsOffWhileAway)
                 }
 
                 Section("Updates") {

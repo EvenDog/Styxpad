@@ -24,7 +24,7 @@ keys. Styxpad lets you remap every key, record macros, set up three profiles, an
 - **Import and export** profiles to back them up or share them.
 - **Backlight effects per profile:** static, breathing, spectrum, wave, reactive and starlight,
   with colors, speed and brightness — previewed live on screen. The lights turn off while your
-  Mac is asleep or locked.
+  Mac is asleep or locked (you can change that in Settings).
 
 ![Styxpad's Lighting screen](docs/lighting.png)
 

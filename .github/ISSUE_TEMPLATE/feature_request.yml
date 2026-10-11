@@ -1,0 +1,30 @@
+# The form GitHub shows when someone clicks "New issue" → "Feature request".
+name: Feature request
+description: Suggest something Styxpad could do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Styxpad to do?
+      placeholder: "Let the scroll wheel switch profiles."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?
+      description: What are you trying to do? (A game, an app, a workflow…)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tartarus-model
+    attributes:
+      label: Tartarus model
+      options:
+        - Tartarus Pro
+        - Tartarus V2
+        - Tartarus Chroma
+        - Other / not sure

@@ -1,0 +1,79 @@
+# The form GitHub shows when someone clicks "New issue" → "Bug report".
+# Format: GitHub "issue forms" (YAML). Each item under `body` is one field.
+name: Bug report
+description: Something in Styxpad doesn't work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The details below help track the problem down.
+        If your Tartarus keys stopped working, unplugging it and plugging it back in restores them.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: "Key 07 is mapped to ⌘Z, but pressing it types a Q."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can someone make it happen again?
+      placeholder: |
+        1. Open Styxpad, Keys tab
+        2. Click key 07, Record New Key, press ⌘Z
+        3. Press key 07 on the Tartarus
+    validations:
+      required: true
+
+  - type: input
+    id: styxpad-version
+    attributes:
+      label: Styxpad version
+      description: Menu bar icon → About Styxpad.
+      placeholder: "0.2"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac.
+      placeholder: "macOS 15.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mac-type
+    attributes:
+      label: Mac
+      options:
+        - Apple Silicon (M1 or later)
+        - Intel
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tartarus-model
+    attributes:
+      label: Tartarus model
+      options:
+        - Tartarus Pro
+        - Tartarus V2
+        - Tartarus Chroma
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, or whether it worked in an earlier version.
