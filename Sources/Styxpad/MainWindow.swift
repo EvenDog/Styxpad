@@ -449,7 +449,9 @@ struct KeyPopoverView: View {
                     }
 
                     if let action = effectiveAction, action.command == .runMacro {
-                        option("Plays") {
+                        // Label above the picker: side by side, the three choices don't fit the popover.
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Plays").foregroundStyle(Theme.textSecondary)
                             PillPicker(options: MacroPlayback.allCases.map { ($0.name, $0) },
                                        selection: Binding(get: { action.playback ?? .once },
                                                           set: { playback in updateAction { $0.playback = playback } }))
@@ -475,7 +477,7 @@ struct KeyPopoverView: View {
             }
         }
         .padding(16)
-        .frame(width: 270)
+        .frame(width: 290)
         .background(Theme.raised)
         .foregroundStyle(Theme.text)
         .preferredColorScheme(.dark)
