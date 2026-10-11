@@ -99,8 +99,12 @@ struct ProfileSwitcher: View {
             // An inline Picker inside a menu shows as a plain list of items with a ✓ on the chosen one.
             Picker("Profile", selection: $store.activeProfileID) {
                 ForEach(Array(store.profiles.enumerated()), id: \.element.id) { index, profile in
-                    Text("\(lightDots(index))   \(romanNumeral(index + 1))   \(profile.name.isEmpty ? "Untitled" : profile.name)")
-                        .tag(profile.id)
+                    Label {
+                        Text("\(romanNumeral(index + 1))   \(profile.name.isEmpty ? "Untitled" : profile.name)")
+                    } icon: {
+                        lightDotsImage(index)
+                    }
+                    .tag(profile.id)
                 }
             }
             .pickerStyle(.inline)
@@ -162,6 +166,32 @@ struct ProfileSwitcher: View {
     private func lightDots(_ index: Int) -> String {
         let patterns = TartarusLayout.profileLightPatterns
         return patterns[index % patterns.count].map { $0 ? "●" : "○" }.joined()
+    }
+
+    /// The same pattern as a small picture for the menu: lit lights as dots in their own color,
+    /// unlit ones as grey rings. (Menus can't color text, but they do show pictures in color.)
+    private func lightDotsImage(_ index: Int) -> Image {
+        let patterns = TartarusLayout.profileLightPatterns
+        let pattern = patterns[index % patterns.count]
+        let dotSize: CGFloat = 9, gap: CGFloat = 3
+        let size = NSSize(width: dotSize * 3 + gap * 2, height: dotSize)
+        // This NSImage initializer draws with the code in { } whenever the picture is shown.
+        let image = NSImage(size: size, flipped: false) { _ in
+            for (light, isLit) in pattern.enumerated() {
+                let dot = NSRect(x: CGFloat(light) * (dotSize + gap), y: 0, width: dotSize, height: dotSize)
+                if isLit {
+                    NSColor(Theme.sideLightColors[light]).setFill()
+                    NSBezierPath(ovalIn: dot).fill()
+                } else {
+                    NSColor.tertiaryLabelColor.setStroke()
+                    let ring = NSBezierPath(ovalIn: dot.insetBy(dx: 0.75, dy: 0.75))
+                    ring.lineWidth = 1.5
+                    ring.stroke()
+                }
+            }
+            return true
+        }
+        return Image(nsImage: image).renderingMode(.original)   // .original = keep its colors
     }
 
     /// Saves one profile (plus the macros it uses) to a file you choose.

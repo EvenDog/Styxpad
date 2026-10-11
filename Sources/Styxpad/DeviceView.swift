@@ -142,7 +142,7 @@ struct DeviceView<Popover: View>: View {
 
     private var sideLights: some View {
         let s = scale
-        let colors: [Color] = [.orange, .green, .blue]
+        let colors = Theme.sideLightColors
         let patterns = TartarusLayout.profileLightPatterns
         let pattern = activeProfileIndex.map { patterns[$0 % patterns.count] }
         return VStack(spacing: 9 * s) {

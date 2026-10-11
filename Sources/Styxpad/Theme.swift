@@ -23,6 +23,9 @@ enum Theme {
     static let riverInk = Color(hex: 0x06201B)     // text on top of the river color
     static let riverDeep = Color(hex: 0x10262A)    // tinted background for selected things
 
+    /// The colors of the 3 side lights (top, middle, bottom), on the drawing and in the profile menu.
+    static let sideLightColors: [Color] = [.orange, .green, .blue]
+
     /// Optima for the wordmark, section labels and profile numerals.
     static func display(_ size: CGFloat) -> Font {
         .custom("Optima", size: size).weight(.bold)
