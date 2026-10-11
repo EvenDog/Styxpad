@@ -15,8 +15,8 @@ final class AppProfileLinker {
 
     /// Apps that never change the profile. Parallels' main app comes to the front a moment after
     /// any Windows app does (checked with Hatch in Coherence mode), so it mustn't count as
-    /// "you left the linked app".
-    private static let ignoredAppIDs: Set<String> = ["com.parallels.desktop.console"]
+    /// "you left the linked app". (Also left out of the + Add App menu, since linking them does nothing.)
+    static let ignoredAppIDs: Set<String> = ["com.parallels.desktop.console"]
 
     init(store: ProfileStore) {
         self.store = store

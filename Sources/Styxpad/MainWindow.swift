@@ -394,6 +394,8 @@ struct KeysScreen: View {
 /// when they come to the front (see AppProfileLinker).
 struct LinkedAppsBar: View {
     @Environment(AppModel.self) private var model
+    /// The apps open right now, offered first in the + Add App menu. Kept up to date as apps open and quit.
+    @State private var openApps: [NSRunningApplication] = []
 
     var body: some View {
         let store = model.store
@@ -423,13 +425,61 @@ struct LinkedAppsBar: View {
                 .background(Capsule().fill(Theme.raised))
                 .overlay(Capsule().strokeBorder(Theme.border))
             }
-            Button("+ Add App") { chooseApp(for: profile.id) }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.river)
-                .help("Pick an app; whenever it's in front, Styxpad switches to this profile")
+            Menu {
+                // Picking an open app gets its exact ID, even for a Windows app in Parallels
+                // whose stand-in apps share one name.
+                Section("Open Apps") {
+                    ForEach(openApps, id: \.processIdentifier) { app in
+                        let bundleID = app.bundleIdentifier ?? ""
+                        let isLinked = profile.linkedAppIDs?.contains(bundleID) == true
+                        // A Toggle in a menu shows a ✓ when on. Apps already linked here show the ✓
+                        // and are greyed out; picking any other app links it.
+                        Toggle(isOn: Binding(get: { isLinked },
+                                             set: { _ in store.linkApp(bundleID, toProfile: profile.id) })) {
+                            Label { Text(app.localizedName ?? bundleID) } icon: { menuIcon(app.icon) }
+                        }
+                        .disabled(isLinked)
+                    }
+                }
+                Divider()
+                Button("Choose from Applications…") { chooseApp(for: profile.id) }
+            } label: {
+                Text("+ Add App").foregroundStyle(Theme.river)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Pick an app; whenever it's in front, Styxpad switches to this profile")
             Spacer()
         }
         .font(.system(size: 12))
+        .onAppear { refreshOpenApps() }
+        // macOS announces whenever an app opens or quits; refresh the list then.
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in
+            refreshOpenApps()
+        }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in
+            refreshOpenApps()
+        }
+    }
+
+    /// Fills openApps: apps with a Dock icon ("regular" apps, so no background helpers), sorted by
+    /// name, minus the ones that never switch profiles (Parallels' own app).
+    private func refreshOpenApps() {
+        openApps = NSWorkspace.shared.runningApplications
+            .filter { app in
+                guard app.activationPolicy == .regular, let bundleID = app.bundleIdentifier else { return false }
+                return !AppProfileLinker.ignoredAppIDs.contains(bundleID)
+            }
+            .sorted { ($0.localizedName ?? "").localizedStandardCompare($1.localizedName ?? "") == .orderedAscending }
+    }
+
+    /// An app's icon at menu size. App icons come in big sizes, and a menu shows a picture at its own size.
+    private func menuIcon(_ icon: NSImage?) -> Image {
+        let small = (icon?.copy() as? NSImage) ?? NSImage()   // a copy, so resizing doesn't change the app's icon elsewhere
+        small.size = NSSize(width: 16, height: 16)
+        return Image(nsImage: small)
     }
 
     private func appURL(_ bundleID: String) -> URL? {
