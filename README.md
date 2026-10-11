@@ -11,6 +11,8 @@ keys. Styxpad lets you remap every key, record macros, set up three profiles, an
 
 - **Remap any key** to another key or a shortcut (e.g. ⌘Z). Click a key on the drawing of your
   Tartarus, press what it should type — done.
+- **Remap the scroll wheel** too: rolling up, rolling down and clicking it can each do something
+  else (e.g. volume up/down), in both Normal and Hypershift.
 - **More than keys:** mouse clicks, scrolling, media keys (play/pause, volume, mute), opening an
   app or website, typing a saved phrase, or switching a key off.
 - **Macros:** record a sequence of keys on your keyboard, then play it from any Tartarus key —
@@ -23,8 +25,8 @@ keys. Styxpad lets you remap every key, record macros, set up three profiles, an
   one of them is in front, then switches back when you leave.
 - **Import and export** profiles to back them up or share them.
 - **Backlight effects per profile:** static, breathing, spectrum, wave, reactive and starlight,
-  with colors, speed and brightness — previewed live on screen. The lights turn off while your
-  Mac is asleep or locked (you can change that in Settings).
+  with colors, speed and brightness — or paint every key its own color. Previewed live on
+  screen. The lights turn off while your Mac is asleep or locked (you can change that in Settings).
 
 ![Styxpad's Lighting screen](docs/lighting.png)
 
@@ -53,7 +55,9 @@ other Tartarus models may work for remapping but are untested.
   Nothing about you is sent. You can turn this off in Settings.
 - Updating from 0.1: once you've used 0.2's new actions or macros, don't go back to 0.1. It can't
   read them and starts over with a blank profile.
-- Not supported (yet): remapping the scroll wheel, per-key colors, analog actuation settings.
+- To remap the scroll wheel, Styxpad takes it over while running and does the scrolling itself;
+  quit Styxpad and the wheel scrolls on its own again.
+- Not supported (yet): analog actuation settings.
 
 ## Build from source
 
@@ -70,7 +74,8 @@ notarization credentials — see the comments at the top of the script).
 ### How it works
 
 1. `TartarusDevice.swift` finds the Tartarus over USB and listens to its keys. It mutes the
-   Tartarus's own keys with Apple's `hidutil` (for that device only; undone when the app quits).
+   Tartarus's own keys with Apple's `hidutil` (for that device only; undone when the app quits),
+   and takes exclusive control of the scroll wheel so its ticks and clicks can be remapped.
 2. `Remapper.swift` looks up each press in the active profile and types the replacement, or runs
    its action: a click, a media key, a macro (`Macro.swift`), Turbo, and so on.
 3. `MainWindow.swift` is the window: click a key on the drawing (`DeviceView.swift`) and a
