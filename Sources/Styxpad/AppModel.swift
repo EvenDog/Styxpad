@@ -18,6 +18,9 @@ final class AppModel {
     /// When each key was last pressed (seconds since 2001, the clock SwiftUI's TimelineView
     /// uses), so the on-screen Reactive lighting preview can flash it.
     var lastPressTimes: [String: Double] = [:]
+    /// Set when the saved profiles couldn't be read at launch: where the copy of the old file
+    /// was kept. The window shows a banner about it until you dismiss it (sets this to nil).
+    var unreadableProfilesCopy: URL?
 
     /// The active profile's position in the list (0, 1 or 2) — also which side light is on.
     var activeProfileIndex: Int? {
@@ -103,6 +106,8 @@ final class AppModel {
 
         device.start()
         turnLightsOffWhileAway()
+
+        unreadableProfilesCopy = store.unreadableFileCopy
 
         // When the app quits, give the Tartarus its normal keys back.
         NotificationCenter.default.addObserver(

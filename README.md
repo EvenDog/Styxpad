@@ -3,7 +3,7 @@
 *Key remapping for Razer Tartarus keypads on macOS.*
 
 Razer Synapse doesn't run on the Mac, so out of the box a Tartarus Pro only types its factory
-keys. Styxpad lets you remap every key, set up three profiles, and control the lighting.
+keys. Styxpad lets you remap every key, record macros, set up three profiles, and control the lighting.
 
 ![Styxpad's Keys screen](docs/keys.png)
 
@@ -11,17 +11,26 @@ keys. Styxpad lets you remap every key, set up three profiles, and control the l
 
 - **Remap any key** to another key or a shortcut (e.g. ⌘Z). Click a key on the drawing of your
   Tartarus, press what it should type — done.
+- **More than keys:** mouse clicks, scrolling, media keys (play/pause, volume, mute), opening an
+  app or website, typing a saved phrase, or switching a key off.
+- **Macros:** record a sequence of keys on your keyboard, then play it from any Tartarus key —
+  once, over and over while the key is held, or on and off like a switch.
+- **Turbo:** a held key repeats 5, 10 or 20 times a second.
 - **Hypershift:** hold a key of your choice to give every other key a second function.
 - **3 profiles**, one per side light. The Side button switches profiles and the side lights
   show which one is active.
+- **Profiles that follow your apps:** link apps to a profile and Styxpad switches to it whenever
+  one of them is in front, then switches back when you leave.
+- **Import and export** profiles to back them up or share them.
 - **Backlight effects per profile:** static, breathing, spectrum, wave, reactive and starlight,
-  with colors, speed and brightness — previewed live on screen.
+  with colors, speed and brightness — previewed live on screen. The lights turn off while your
+  Mac is asleep or locked.
 
 ![Styxpad's Lighting screen](docs/lighting.png)
 
 ## Install
 
-1. Download **Styxpad-0.1.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
+1. Download **Styxpad-0.2.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
 2. Open it and drag **Styxpad** into **Applications**.
 3. Open Styxpad. The welcome screen walks you through two permissions macOS requires:
    - **Input Monitoring** — so Styxpad can read your Tartarus's key presses.
@@ -40,7 +49,9 @@ other Tartarus models may work for remapping but are untested.
 - Styxpad doesn't install any drivers. It mutes the Tartarus's own keys using Apple's built-in
   per-device key remapping, and gives them back when Styxpad quits.
 - If the Tartarus's keys ever stop working after Styxpad crashes, unplug it and plug it back in.
-- Not supported (yet): remapping the scroll wheel, macros, per-key colors, analog actuation settings.
+- Updating from 0.1: once you've used 0.2's new actions or macros, don't go back to 0.1. It can't
+  read them and starts over with a blank profile.
+- Not supported (yet): remapping the scroll wheel, per-key colors, analog actuation settings.
 
 ## Build from source
 
@@ -58,13 +69,16 @@ notarization credentials — see the comments at the top of the script).
 
 1. `TartarusDevice.swift` finds the Tartarus over USB and listens to its keys. It mutes the
    Tartarus's own keys with Apple's `hidutil` (for that device only; undone when the app quits).
-2. `Remapper.swift` looks up each press in the active profile and types the replacement.
+2. `Remapper.swift` looks up each press in the active profile and types the replacement, or runs
+   its action: a click, a media key, a macro (`Macro.swift`), Turbo, and so on.
 3. `MainWindow.swift` is the window: click a key on the drawing (`DeviceView.swift`) and a
-   popover lets you record what it should type; the Lighting tab edits the backlight.
+   popover lets you record what it should type; the Lighting tab edits the backlight, and the
+   Macros tab (`MacrosScreen.swift`) records macros.
 4. `RazerProtocol.swift` builds the lighting commands (side lights and backlight effects).
-5. `Theme.swift` holds the "Styx" colors and fonts.
+5. `AppProfileLinker.swift` switches profiles when you switch apps.
+6. `Theme.swift` holds the "Styx" colors and fonts.
 
-Profiles are saved in `~/Library/Application Support/Styxpad/profiles.json`.
+Profiles and macros are saved in `~/Library/Application Support/Styxpad/profiles.json`.
 
 ## Credits
 

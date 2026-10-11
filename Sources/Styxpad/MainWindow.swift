@@ -28,6 +28,9 @@ struct MainWindowView: View {
                 if !model.isConnected {
                     ConnectionBanner()
                 }
+                if let copy = model.unreadableProfilesCopy {
+                    UnreadableProfilesBanner(copy: copy)
+                }
                 switch tab {
                 case .keys: KeysScreen()
                 case .lighting: LightingScreen()
@@ -185,6 +188,29 @@ struct ConnectionDot: View {
             .shadow(color: model.isConnected ? Theme.river : .clear, radius: 4)
             .help(model.isConnected ? "Tartarus Pro connected" : model.statusText)
             .accessibilityLabel(model.isConnected ? "Tartarus Pro connected" : "Tartarus not connected")
+    }
+}
+
+/// Shown when the saved profiles couldn't be read at launch (e.g. after going back to an older
+/// Styxpad): Styxpad started fresh, and this says where the old file was kept.
+struct UnreadableProfilesBanner: View {
+    @Environment(AppModel.self) private var model
+    let copy: URL
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text("Styxpad couldn't read your saved profiles, so it started fresh. The old file was kept as “\(copy.lastPathComponent)”.")
+                .foregroundStyle(Theme.textSecondary)
+            Spacer()
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([copy]) }
+            Button("Dismiss") { model.unreadableProfilesCopy = nil }
+        }
+        .font(.system(size: 12))
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+        .background(Theme.panel)
     }
 }
 

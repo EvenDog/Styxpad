@@ -193,14 +193,21 @@ final class ProfileStore {
         URL.applicationSupportDirectory.appending(path: "Styxpad/profiles.json")
     }
 
+    /// Set when the saved file existed but couldn't be read: where a copy of it was kept,
+    /// so the app can tell you (see AppModel).
+    @ObservationIgnored private(set) var unreadableFileCopy: URL?
+
     init() {
-        if let data = try? Data(contentsOf: Self.fileURL),
-           let saved = try? JSONDecoder().decode(SavedData.self, from: data),
-           !saved.profiles.isEmpty {
+        let data = try? Data(contentsOf: Self.fileURL)
+        if let data, let saved = try? JSONDecoder().decode(SavedData.self, from: data), !saved.profiles.isEmpty {
             profiles = saved.profiles
             activeProfileID = saved.activeProfileID
             macros = saved.macros ?? []
         } else {
+            // No file yet (first launch), or one we can't read — e.g. damaged, or saved by a newer
+            // Styxpad. In the second case, keep a copy before starting fresh: the next save would
+            // otherwise overwrite it and the profiles would be lost.
+            if data != nil { unreadableFileCopy = Self.keepCopyOfUnreadableFile() }
             let first = Profile.makeNew(named: "Default")
             profiles = [first]
             activeProfileID = first.id
@@ -209,6 +216,23 @@ final class ProfileStore {
         // Profiles saved before lighting settings existed get the default backlight.
         for index in profiles.indices where profiles[index].backlight == nil {
             profiles[index].backlight = BacklightSettings()
+        }
+    }
+
+    /// Copies the unreadable profiles file next to it, as "profiles (couldn't read, 2026-10-11 0915).json".
+    /// Returns the copy's location, or nil if copying failed.
+    private static func keepCopyOfUnreadableFile() -> URL? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HHmm"
+        let copy = fileURL.deletingLastPathComponent()
+            .appending(path: "profiles (couldn't read, \(formatter.string(from: Date()))).json")
+        do {
+            try? FileManager.default.removeItem(at: copy)   // in case of two copies in the same minute
+            try FileManager.default.copyItem(at: fileURL, to: copy)
+            return copy
+        } catch {
+            print("Styxpad: couldn't keep a copy of the unreadable profiles file: \(error)")
+            return nil
         }
     }
 
