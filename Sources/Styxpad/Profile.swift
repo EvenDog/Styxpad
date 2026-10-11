@@ -146,6 +146,9 @@ struct Profile: Codable, Identifiable, Equatable {
     var normalLayer: [String: KeyAction] = [:]   // physical key id → action
     var hypershiftLayer: [String: KeyAction] = [:]
     var backlight: BacklightSettings?            // optional only so profiles saved before lighting still load
+    /// Apps that switch to this profile when they come to the front, by bundle ID
+    /// (e.g. "com.adobe.Photoshop"). Optional so older files still load.
+    var linkedAppIDs: [String]?
 
     /// A fresh profile. The Side button starts out as "Next Profile", so you can always switch
     /// away from it (you can still remap Side in the editor).
@@ -257,6 +260,65 @@ final class ProfileStore {
             profiles[index].normalLayer = profiles[index].normalLayer.filter { !runsThisMacro($0.value) }
             profiles[index].hypershiftLayer = profiles[index].hypershiftLayer.filter { !runsThisMacro($0.value) }
         }
+    }
+
+    // MARK: Linked apps
+
+    /// Makes an app switch to this profile. An app can only belong to one profile,
+    /// so it's removed from any other profile first.
+    func linkApp(_ bundleID: String, toProfile profileID: UUID) {
+        unlinkApp(bundleID)
+        if let index = profiles.firstIndex(where: { $0.id == profileID }) {
+            profiles[index].linkedAppIDs = (profiles[index].linkedAppIDs ?? []) + [bundleID]
+        }
+    }
+
+    func unlinkApp(_ bundleID: String) {
+        for index in profiles.indices where profiles[index].linkedAppIDs?.contains(bundleID) == true {
+            profiles[index].linkedAppIDs?.removeAll { $0 == bundleID }
+        }
+    }
+
+    // MARK: Import / export
+
+    /// The file format of an exported profile: the profile plus the macros its keys run,
+    /// so it works on another Mac.
+    struct ProfileFile: Codable {
+        var format = "Styxpad profile"
+        var version = 1
+        var profile: Profile
+        var macros: [Macro]
+    }
+
+    /// One profile as a JSON file's contents.
+    func exportData(forProfile profileID: UUID) throws -> Data {
+        guard let profile = profiles.first(where: { $0.id == profileID }) else { throw CocoaError(.fileNoSuchFile) }
+        let usedMacroIDs = Set((Array(profile.normalLayer.values) + Array(profile.hypershiftLayer.values))
+            .filter { $0.command == .runMacro }
+            .compactMap(\.detail))   // compactMap = map, then drop the nils
+        let file = ProfileFile(profile: profile, macros: macros.filter { usedMacroIDs.contains($0.id.uuidString) })
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(file)
+    }
+
+    /// Adds a profile from an exported file and makes it active. Throws if the file isn't
+    /// a Styxpad profile. (The caller checks there's room: at most 3 profiles.)
+    func importProfile(from data: Data) throws {
+        let file = try JSONDecoder().decode(ProfileFile.self, from: data)
+        var profile = file.profile
+        profile.id = UUID()   // a new id, in case the same file is imported twice
+        // Apps already linked to one of your profiles stay with that profile.
+        let alreadyLinked = Set(profiles.flatMap { $0.linkedAppIDs ?? [] })
+        profile.linkedAppIDs = profile.linkedAppIDs?.filter { !alreadyLinked.contains($0) }
+        profile.backlight = profile.backlight ?? BacklightSettings()
+
+        // Macros keep their ids (the keys point to them), so re-importing doesn't duplicate them.
+        for macro in file.macros where !macros.contains(where: { $0.id == macro.id }) {
+            macros.append(macro)
+        }
+        profiles.append(profile)
+        activeProfileID = profile.id
     }
 
     private func save() {

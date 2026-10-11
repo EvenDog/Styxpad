@@ -72,11 +72,13 @@ struct MainWindowView: View {
 
 // MARK: - Title bar pieces
 
-/// The I · II · III profile pills. Right-click one to rename or delete it.
+/// The I · II · III profile pills. Right-click one to rename, export or delete it;
+/// the + menu adds a new or imported profile.
 struct ProfileSwitcher: View {
     @Environment(AppModel.self) private var model
     @State private var renamingProfileID: UUID?
     @State private var renameText = ""
+    @State private var showImportError = false
 
     var body: some View {
         @Bindable var store = model.store
@@ -104,21 +106,25 @@ struct ProfileSwitcher: View {
                         renameText = profile.name
                         renamingProfileID = profile.id
                     }
+                    Button("Export…") { export(profile) }
                     Button("Delete", role: .destructive) { store.deleteProfile(profile.id) }
                         .disabled(store.profiles.count < 2)
                 }
-                .help("Profile \(romanNumeral(index + 1)) — side light \(index + 1). Right-click to rename or delete.")
+                .help("Profile \(romanNumeral(index + 1)) — side light \(index + 1). Right-click to rename, export or delete.")
             }
             if store.profiles.count < ProfileStore.maxProfiles {
-                Button { store.addProfile() } label: {
+                Menu {
+                    Button("New Profile") { store.addProfile() }
+                    Button("Import Profile…") { importProfile() }
+                } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 28, height: 26)
-                        .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
-                .help("New profile (up to \(ProfileStore.maxProfiles), one for each side light)")
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 28, height: 26)
+                .help("New or imported profile (up to \(ProfileStore.maxProfiles), one for each side light)")
             }
         }
         .padding(3)
@@ -133,6 +139,37 @@ struct ProfileSwitcher: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .alert("Couldn't import that file", isPresented: $showImportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("It isn't a profile exported from Styxpad.")
+        }
+    }
+
+    /// Saves one profile (plus the macros it uses) to a file you choose.
+    private func export(_ profile: Profile) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "\(profile.name) (Styxpad profile).json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try model.store.exportData(forProfile: profile.id).write(to: url)
+        } catch {
+            print("Styxpad: couldn't export profile: \(error)")
+        }
+    }
+
+    /// Lets you pick an exported profile file and adds it as a new profile.
+    private func importProfile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try model.store.importProfile(from: Data(contentsOf: url))
+        } catch {
+            showImportError = true
         }
     }
 }
@@ -198,6 +235,7 @@ struct KeysScreen: View {
                 Text("Click a key to change what it does.")
                     .foregroundStyle(Theme.textMuted)
             }
+            LinkedAppsBar()
 
             GeometryReader { geometry in
                 let scale = fitScale(for: geometry.size)
@@ -223,6 +261,68 @@ struct KeysScreen: View {
         .padding(.horizontal, 24)
         .padding(.top, 16)
         .padding(.bottom, 20)
+    }
+}
+
+/// "Switches on for: Photoshop ✕  + Add App": the apps that make the active profile switch on
+/// when they come to the front (see AppProfileLinker).
+struct LinkedAppsBar: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let store = model.store
+        let profile = store.activeProfile
+
+        HStack(spacing: 8) {
+            Text("Switches on for:")
+                .foregroundStyle(Theme.textMuted)
+            ForEach(profile.linkedAppIDs ?? [], id: \.self) { bundleID in
+                HStack(spacing: 6) {
+                    if let url = appURL(bundleID) {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                    }
+                    Text(appName(bundleID))
+                    Button { store.unlinkApp(bundleID) } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(Theme.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Stop switching to this profile for \(appName(bundleID))")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Theme.raised))
+                .overlay(Capsule().strokeBorder(Theme.border))
+            }
+            Button("+ Add App") { chooseApp(for: profile.id) }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.river)
+                .help("Pick an app; whenever it's in front, Styxpad switches to this profile")
+            Spacer()
+        }
+        .font(.system(size: 12))
+    }
+
+    private func appURL(_ bundleID: String) -> URL? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+    }
+
+    /// The app's name as Finder shows it, or its bundle ID if it's no longer installed.
+    private func appName(_ bundleID: String) -> String {
+        appURL(bundleID).map { FileManager.default.displayName(atPath: $0.path) } ?? bundleID
+    }
+
+    private func chooseApp(for profileID: UUID) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "Add"
+        if panel.runModal() == .OK, let url = panel.url, let bundleID = Bundle(url: url)?.bundleIdentifier {
+            model.store.linkApp(bundleID, toProfile: profileID)
+        }
     }
 }
 
