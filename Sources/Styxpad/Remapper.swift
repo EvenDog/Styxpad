@@ -25,6 +25,15 @@ final class Remapper {
     /// profiles in between (otherwise a key could get "stuck" down).
     private var pressedActions: [UInt32: KeyAction] = [:]
 
+    /// Work that keeps going after a press: Turbo, or a macro looping "while held" or "toggle".
+    /// Filed under the Tartarus key's USB code, so its release (or, for Toggle, its next press) can stop it.
+    /// A "Task" is a piece of work that runs alongside everything else and can be cancelled.
+    private var repeatingTasks: [UInt32: Task<Void, Never>] = [:]
+
+    /// Keys that playing macros are holding down right now, so held modifiers (e.g. a recorded
+    /// Shift) apply to the macro's other keys.
+    private var keysHeldByMacros: Set<UInt16> = []
+
     init(store: ProfileStore) {
         self.store = store
     }
@@ -52,21 +61,61 @@ final class Remapper {
 
         if isDown {
             guard pressedActions[hidUsage] == nil else { return }   // ignore duplicate "down" reports
+            // This key is still looping a macro in Toggle mode: this press stops it.
+            if let task = repeatingTasks.removeValue(forKey: hidUsage) {
+                task.cancel()
+                return
+            }
             guard let action = action(for: hidUsage, physicalKey: physicalKey, in: profile) else { return }
             pressedActions[hidUsage] = action
-            perform(action, isDown: true)
+            if let task = startRepeating(action) {
+                repeatingTasks[hidUsage] = task
+            } else {
+                perform(action, isDown: true)
+            }
         } else {
             guard let action = pressedActions.removeValue(forKey: hidUsage) else { return }
-            perform(action, isDown: false)
+            if action.command == .runMacro && action.playback == .toggle { return }   // keeps looping until the next press
+            if let task = repeatingTasks.removeValue(forKey: hidUsage) {
+                task.cancel()   // Turbo / While Held: letting go stops it
+            } else {
+                perform(action, isDown: false)
+            }
         }
     }
 
-    /// Releases every key we're holding down. Used when the Tartarus is unplugged mid-press.
+    /// Releases every key we're holding down and stops anything repeating.
+    /// Used when the Tartarus is unplugged mid-press.
     func releaseAll() {
-        let held = pressedActions.values
+        let held = pressedActions
         pressedActions.removeAll()
         heldHypershiftUsage = nil
-        for action in held { perform(action, isDown: false) }
+        for (hidUsage, action) in held where repeatingTasks[hidUsage] == nil {
+            perform(action, isDown: false)
+        }
+        for task in repeatingTasks.values { task.cancel() }   // each releases its own keys as it stops
+        repeatingTasks.removeAll()
+    }
+
+    /// For Turbo, or a macro set to While Held / Toggle: starts the repeating work and returns it.
+    /// Returns nil for everything else (which is simply performed once).
+    private func startRepeating(_ action: KeyAction) -> Task<Void, Never>? {
+        if let rate = action.turboRate, action.supportsTurbo {
+            // "@MainActor" = run on the main thread, like everything else in the Remapper.
+            return Task { @MainActor in
+                let halfPause = Duration.milliseconds(500 / rate)   // half the time pressed, half released
+                while !Task.isCancelled {
+                    perform(action, isDown: true)
+                    try? await Task.sleep(for: halfPause)
+                    perform(action, isDown: false)   // runs even if cancelled mid-pause, so nothing stays held
+                    try? await Task.sleep(for: halfPause)
+                }
+            }
+        }
+        if action.command == .runMacro, (action.playback ?? .once) != .once, let macro = macro(for: action) {
+            return Task { @MainActor in await play(macro, repeating: true) }
+        }
+        return nil
     }
 
     /// Carries out one press or release of a mapping: types a key, or runs its command.
@@ -96,8 +145,45 @@ final class Remapper {
             if isDown, let address = action.detail, let url = URL(string: address) { NSWorkspace.shared.open(url) }
         case .typeText:
             if isDown, let text = action.detail { type(text) }
+        case .runMacro:
+            // Once mode (While Held and Toggle are started by startRepeating instead).
+            if isDown, let macro = macro(for: action) {
+                Task { @MainActor in await play(macro, repeating: false) }
+            }
         case .disabled: break
         }
+    }
+
+    // MARK: Macros
+
+    /// The library macro a Run Macro key points to, if it still exists and has steps.
+    private func macro(for action: KeyAction) -> Macro? {
+        store.macros.first { $0.id.uuidString == action.detail && !$0.steps.isEmpty }
+    }
+
+    /// Plays a macro's steps with their pauses: once, or over and over (repeating) until cancelled.
+    /// Any key it's still holding at the end (e.g. stopped halfway through) gets released.
+    /// "async" means this function can pause (the sleeps) without freezing the rest of the app.
+    @MainActor private func play(_ macro: Macro, repeating: Bool) async {
+        var heldKeys: Set<UInt16> = []
+        var isFirstRound = true
+        repeat {
+            if !isFirstRound { try? await Task.sleep(for: .milliseconds(macro.pauseBetweenRepeats)) }
+            for (index, step) in macro.steps.enumerated() {
+                try? await Task.sleep(for: .milliseconds(macro.delay(before: index)))
+                if Task.isCancelled { break }
+                if step.isDown { heldKeys.insert(step.keyCode) } else { heldKeys.remove(step.keyCode) }
+                postMacroKey(step.keyCode, isDown: step.isDown)
+            }
+            isFirstRound = false
+        } while repeating && !Task.isCancelled
+
+        for keyCode in heldKeys { postMacroKey(keyCode, isDown: false) }
+    }
+
+    private func postMacroKey(_ keyCode: UInt16, isDown: Bool) {
+        if isDown { keysHeldByMacros.insert(keyCode) } else { keysHeldByMacros.remove(keyCode) }
+        post(KeyAction(keyCode: keyCode), isDown: isDown)
     }
 
     /// Picks what a key should do: Hypershift mapping (if held) → normal mapping → factory default.
@@ -116,7 +202,7 @@ final class Remapper {
 
     /// Types one key down or up, with the right modifier flags attached.
     private func post(_ action: KeyAction, isDown: Bool) {
-        log.debug("  → typing \(action.displayName, privacy: .public) \(isDown ? "down" : "up", privacy: .public)")
+        log.debug("  → typing \(action.displayName(), privacy: .public) \(isDown ? "down" : "up", privacy: .public)")
         guard let event = CGEvent(keyboardEventSource: eventSource, virtualKey: action.keyCode, keyDown: isDown) else { return }
 
         // Modifier keys (Shift, Control, ...) are reported to macOS as a "flags changed"
@@ -200,12 +286,18 @@ final class Remapper {
     }
 
     /// Modifiers that should apply right now: those held on your main keyboard, plus any
-    /// Tartarus keys mapped to a modifier (e.g. key 16 as Shift) that are currently held.
+    /// Tartarus keys mapped to a modifier (e.g. key 16 as Shift) that are currently held,
+    /// plus any held by a playing macro.
     private func currentModifierFlags() -> CGEventFlags {
         let relevant: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
         var flags = CGEventSource.flagsState(.hidSystemState).intersection(relevant)
         for action in pressedActions.values {
             if let flag = KeyCodes.modifierFlagForMacKeyCode[action.keyCode] {
+                flags.insert(flag)
+            }
+        }
+        for keyCode in keysHeldByMacros {
+            if let flag = KeyCodes.modifierFlagForMacKeyCode[keyCode] {
                 flags.insert(flag)
             }
         }

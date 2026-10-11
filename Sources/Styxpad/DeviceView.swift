@@ -42,6 +42,8 @@ struct DeviceView<Popover: View>: View {
     var time: Double = 0
     /// When each key was last pressed (same clock as `time`), for the Reactive preview.
     var lastPressTimes: [String: Double] = [:]
+    /// The macro library, so keys that run a macro can show its name.
+    var macros: [Macro] = []
     @Binding var selectedKeyID: String?
     /// The popover shown next to a key when it's selected.
     @ViewBuilder let popover: (PhysicalKey) -> Popover
@@ -229,9 +231,9 @@ struct DeviceView<Popover: View>: View {
     /// What to print on a key for the current layer.
     private func mappingText(for key: PhysicalKey) -> String {
         if key.id == profile.hypershiftKeyID { return "Hypershift" }
-        if let action = profile.action(for: key.id, in: layer) { return action.displayName }
+        if let action = profile.action(for: key.id, in: layer) { return action.displayName(macros: macros) }
         if layer == .hypershift, let normal = profile.action(for: key.id, in: .normal) {
-            return normal.displayName   // the Hypershift layer falls back to Normal
+            return normal.displayName(macros: macros)   // the Hypershift layer falls back to Normal
         }
         return key.defaultName
     }

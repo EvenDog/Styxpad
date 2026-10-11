@@ -1,14 +1,16 @@
 // The main window, built around a drawing of the Tartarus:
 // - the title bar holds the STYXPAD wordmark, the profile switcher (I · II · III),
-//   the Keys / Lighting switch and a connection dot;
+//   the Keys / Lighting / Macros switch and a connection dot;
 // - Keys: click a key on the drawing and a popover next to it lets you change it;
-// - Lighting: the profile's backlight effect, colors and brightness, previewed on the drawing.
+// - Lighting: the profile's backlight effect, colors and brightness, previewed on the drawing;
+// - Macros: the macro library (MacrosScreen.swift).
 
 import SwiftUI
 
 enum EditorTab: String, CaseIterable {
     case keys = "Keys"
     case lighting = "Lighting"
+    case macros = "Macros"
 }
 
 struct MainWindowView: View {
@@ -29,6 +31,7 @@ struct MainWindowView: View {
                 switch tab {
                 case .keys: KeysScreen()
                 case .lighting: LightingScreen()
+                case .macros: MacrosScreen()
                 }
             }
         }
@@ -208,9 +211,10 @@ struct KeysScreen: View {
                         scale: scale,
                         time: time,
                         lastPressTimes: model.lastPressTimes,
+                        macros: store.macros,
                         selectedKeyID: $selectedKeyID
                     ) { key in
-                        KeyPopoverView(key: key, layer: layer, profile: $store.activeProfile)
+                        KeyPopoverView(key: key, layer: layer, profile: $store.activeProfile, macros: store.macros)
                     }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -246,6 +250,7 @@ struct KeyPopoverView: View {
     let key: PhysicalKey
     let layer: Layer
     @Binding var profile: Profile
+    let macros: [Macro]
 
     @State private var isRecording = false
     @State private var keyMonitor: Any?
@@ -291,6 +296,22 @@ struct KeyPopoverView: View {
                             .buttonStyle(PillButtonStyle())
                             .disabled(profile.action(for: key.id, in: layer) == nil)
                     }
+
+                    if let action = effectiveAction, action.command == .runMacro {
+                        option("Plays") {
+                            PillPicker(options: MacroPlayback.allCases.map { ($0.name, $0) },
+                                       selection: Binding(get: { action.playback ?? .once },
+                                                          set: { playback in updateAction { $0.playback = playback } }))
+                        }
+                    } else if let action = effectiveAction, action.supportsTurbo {
+                        option("Turbo") {
+                            // 0 stands for "off" here; it's saved as nil.
+                            PillPicker(options: [("Off", 0), ("5/s", 5), ("10/s", 10), ("20/s", 20)],
+                                       selection: Binding(get: { action.turboRate ?? 0 },
+                                                          set: { rate in updateAction { $0.turboRate = rate == 0 ? nil : rate } }))
+                        }
+                        .help("While the key is held, press it again and again this many times a second")
+                    }
                 }
 
                 if layer == .normal {
@@ -321,6 +342,16 @@ struct KeyPopoverView: View {
             Section("Media") {
                 ForEach(Command.mediaCommands, id: \.self) { command in
                     Button(command.name) { setCommand(command) }
+                }
+            }
+            Section("Macros") {
+                Menu("Run Macro") {
+                    ForEach(macros) { macro in
+                        Button(macro.name) { setCommand(.runMacro, detail: macro.id.uuidString) }
+                    }
+                    if macros.isEmpty {
+                        Text("No macros yet. Record one in the Macros tab.")
+                    }
                 }
             }
             Section("Other") {
@@ -356,6 +387,37 @@ struct KeyPopoverView: View {
                     .disabled(enteredText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
+    }
+
+    /// A small label with a control next to it.
+    private func option(_ label: String, @ViewBuilder control: () -> some View) -> some View {
+        HStack(spacing: 10) {
+            Text(label)
+                .foregroundStyle(Theme.textSecondary)
+            control()
+        }
+    }
+
+    /// What this key does right now in this layer: its own mapping, else (in the Hypershift layer)
+    /// the Normal one, else the key it types out of the box — the same order the Remapper uses.
+    private var effectiveAction: KeyAction? {
+        profile.action(for: key.id, in: layer)
+            ?? (layer == .hypershift ? profile.action(for: key.id, in: .normal) : nil)
+            ?? defaultAction
+    }
+
+    private var defaultAction: KeyAction? {
+        KeyCodes.macKeyCode(forHIDUsage: key.defaultHIDUsage).map { KeyAction(keyCode: $0) }
+    }
+
+    /// Changes one setting (playback, turbo) of this key's mapping and saves it.
+    /// "inout" lets the `change` closure edit the action in place.
+    private func updateAction(_ change: (inout KeyAction) -> Void) {
+        guard var action = effectiveAction else { return }
+        change(&action)
+        // Back to exactly the out-of-the-box key (e.g. turbo switched off again) = no custom mapping.
+        let isDefault = layer == .normal && action == defaultAction
+        profile.setAction(isDefault ? nil : action, for: key.id, in: layer)
     }
 
     private func setCommand(_ command: Command, detail: String? = nil) {
@@ -398,7 +460,7 @@ struct KeyPopoverView: View {
     }
 
     private var currentMappingText: String {
-        if let action = profile.action(for: key.id, in: layer) { return action.displayName }
+        if let action = profile.action(for: key.id, in: layer) { return action.displayName(macros: macros) }
         if layer == .hypershift { return "Same as Normal" }
         return key.defaultName
     }
@@ -460,6 +522,7 @@ struct LightingScreen: View {
                         scale: fitScale(for: geometry.size),
                         time: time,
                         lastPressTimes: model.lastPressTimes,
+                        macros: store.macros,
                         selectedKeyID: .constant(nil)
                     ) { _ in EmptyView() }
                     .allowsHitTesting(false)   // keys aren't clickable on this screen

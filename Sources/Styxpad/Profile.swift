@@ -50,6 +50,7 @@ enum Command: String, Codable {
     case playPause, nextTrack, previousTrack, volumeUp, volumeDown, mute
     case disabled      // the key does nothing at all
     case openApp, openWebsite, typeText   // these use KeyAction.detail
+    case runMacro      // plays a macro from the library; KeyAction.detail holds its id
 
     /// The groups shown in the key popover's "More Actions" menu (the last three need extra input,
     /// so the menu lists them separately).
@@ -75,6 +76,7 @@ enum Command: String, Codable {
         case .openApp: "Open App"
         case .openWebsite: "Open Website"
         case .typeText: "Type Text"
+        case .runMacro: "Run Macro"
         }
     }
 }
@@ -86,13 +88,34 @@ struct KeyAction: Codable, Equatable {
     var modifiers: Modifiers = []
     var command: Command? = nil   // optional, so profiles saved before commands existed still load
     /// Extra input for some commands: the app's file path (openApp), the web address (openWebsite)
-    /// or the text to type (typeText). Optional for the same reason as `command`.
+    /// or the text to type (typeText), or the macro's id (runMacro). Optional for the same reason as `command`.
     var detail: String? = nil
+    /// How a Run Macro key plays its macro (nil = once).
+    var playback: MacroPlayback? = nil
+    /// Turbo: while the key is held, it's pressed this many times a second (nil = turbo off).
+    var turboRate: Int? = nil
 
     /// The "Next Profile" mapping. (keyCode is ignored when a command is set.)
     static let nextProfile = KeyAction(keyCode: 0, command: .nextProfile)
 
-    var displayName: String {
+    /// Turbo only makes sense for things that can be pressed again and again.
+    var supportsTurbo: Bool {
+        switch command {
+        case nil, .leftClick, .rightClick, .middleClick, .scrollUp, .scrollDown, .volumeUp, .volumeDown: true
+        default: false
+        }
+    }
+
+    /// The name shown on the key drawing and in the popover, with a ⚡ when turbo is on.
+    /// Pass the macro library so a Run Macro key can show its macro's name.
+    func displayName(macros: [Macro] = []) -> String {
+        if command == .runMacro {
+            return macros.first { $0.id.uuidString == detail }?.name ?? "No Macro"
+        }
+        return (turboRate != nil ? "⚡" : "") + baseName
+    }
+
+    private var baseName: String {
         guard let command else { return modifiers.symbols + KeyCodes.name(forMacKeyCode: keyCode) }
         switch command {
         case .openApp:
@@ -151,6 +174,7 @@ struct Profile: Codable, Identifiable, Equatable {
 final class ProfileStore {
     var profiles: [Profile] { didSet { save(); onChange?() } }
     var activeProfileID: UUID { didSet { save(); onChange?() } }
+    var macros: [Macro] = [] { didSet { save() } }
 
     /// Called after any change (switching profile, editing a mapping, ...).
     @ObservationIgnored var onChange: (() -> Void)?
@@ -159,6 +183,7 @@ final class ProfileStore {
     private struct SavedData: Codable {
         var profiles: [Profile]
         var activeProfileID: UUID
+        var macros: [Macro]?   // optional, so files saved before macros existed still load
     }
 
     private static var fileURL: URL {
@@ -171,6 +196,7 @@ final class ProfileStore {
            !saved.profiles.isEmpty {
             profiles = saved.profiles
             activeProfileID = saved.activeProfileID
+            macros = saved.macros ?? []
         } else {
             let first = Profile.makeNew(named: "Default")
             profiles = [first]
@@ -216,13 +242,30 @@ final class ProfileStore {
         if activeProfileID == id { activeProfileID = profiles[0].id }
     }
 
+    /// Adds an empty macro to the library and returns its id.
+    func addMacro() -> UUID {
+        let macro = Macro(name: "Macro \(macros.count + 1)")
+        macros.append(macro)
+        return macro.id
+    }
+
+    /// Deletes a macro, and resets every key (in every profile and layer) that was set to run it.
+    func deleteMacro(_ id: UUID) {
+        macros.removeAll { $0.id == id }
+        let runsThisMacro = { (action: KeyAction) in action.command == .runMacro && action.detail == id.uuidString }
+        for index in profiles.indices {
+            profiles[index].normalLayer = profiles[index].normalLayer.filter { !runsThisMacro($0.value) }
+            profiles[index].hypershiftLayer = profiles[index].hypershiftLayer.filter { !runsThisMacro($0.value) }
+        }
+    }
+
     private func save() {
         do {
             let folder = Self.fileURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(SavedData(profiles: profiles, activeProfileID: activeProfileID))
+            let data = try encoder.encode(SavedData(profiles: profiles, activeProfileID: activeProfileID, macros: macros))
             try data.write(to: Self.fileURL)
         } catch {
             print("Styxpad: couldn't save profiles: \(error)")
