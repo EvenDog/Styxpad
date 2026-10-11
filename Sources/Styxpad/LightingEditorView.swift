@@ -86,6 +86,20 @@ struct LightingEditorView: View {
                 }
             }
 
+            if settings.effect.usesSpeedSlider {
+                section("Speed") {
+                    HStack(spacing: 10) {
+                        Text("Slow").foregroundStyle(Theme.textMuted)
+                        // waveSpeed is optional (nil = the old fixed speed), so fill in that default.
+                        Slider(value: Binding(get: { settings.waveSpeed ?? BacklightSettings.defaultWaveSpeed },
+                                              set: { settings.waveSpeed = $0 }), in: 0...1)
+                            .tint(Theme.river)
+                            .accessibilityLabel("Speed")
+                        Text("Fast").foregroundStyle(Theme.textMuted)
+                    }
+                }
+            }
+
             if settings.effect.usesDirection {
                 section("Direction") {
                     PillPicker(options: WaveDirection.allCases.map { ($0.rawValue, $0) }, selection: $settings.direction)

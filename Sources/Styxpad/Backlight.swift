@@ -55,6 +55,7 @@ enum LightingEffect: String, Codable, CaseIterable, Identifiable {
     // Which settings matter for each effect, so the editor only shows relevant controls.
     var usesColorMode: Bool { self == .breathing || self == .starlight }
     var usesSpeed: Bool { self == .reactive || self == .starlight }
+    var usesSpeedSlider: Bool { self == .wave }
     var usesDirection: Bool { self == .wave }
     var usesColor: Bool { self == .staticColor || self == .reactive || self == .custom || usesColorMode }
 }
@@ -92,6 +93,18 @@ struct BacklightSettings: Codable, Equatable {
     /// For the Custom effect: each key's color, by physical key id ("01" … "20").
     /// Keys without a color stay dark. Optional, so files saved before this existed still load.
     var keyColors: [String: RGBColor]?
+    /// Wave's speed, from 0 (slowest) to 1 (fastest). Optional, so files saved before this existed
+    /// still load; nil means defaultWaveSpeed, the speed Styxpad always used before.
+    var waveSpeed: Double?
+
+    /// Where the slider sits for the old fixed speed: all the way to Fast (see waveDelay).
+    static let defaultWaveSpeed = 1.0
+
+    /// Wave's speed as the byte the Tartarus expects: a delay, so bigger = slower.
+    /// Ranges from 160 (slowest) to 40 (fastest: 0x28, what OpenRazer always sends). Shorter
+    /// delays (20 and 10) looked glitchy on the real pad, so the slider only slows the wave down.
+    /// pow(4, …) makes each step speed up by the same factor.
+    var waveDelay: Double { 40 * pow(4, 1 - (waveSpeed ?? Self.defaultWaveSpeed)) }
 
     /// Whether the effect moves, so the on-screen preview needs to keep redrawing.
     var isAnimated: Bool { effect != .off && effect != .staticColor && effect != .custom }

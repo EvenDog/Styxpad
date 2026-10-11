@@ -48,7 +48,7 @@ enum RazerProtocol {
             effectArguments = [0x03, 0x00, 0x00, 0x00]
         case .wave:
             let direction: UInt8 = settings.direction == .left ? 0x01 : 0x02
-            effectArguments = [0x04, direction, 0x28 /* wave speed OpenRazer uses */, 0x00]
+            effectArguments = [0x04, direction, UInt8(settings.waveDelay.rounded()), 0x00]
         case .reactive:
             effectArguments = [0x05, 0x00, speedByte(settings.speed), 0x01] + color1
         case .custom:

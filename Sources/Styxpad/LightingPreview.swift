@@ -43,7 +43,10 @@ enum LightingPreview {
             glow = KeyGlow(color: Color(hue: fraction(time / 10), saturation: 1, brightness: 1), intensity: 1)
         case .wave:
             // A rainbow spread across the keypad, sliding left or right over time.
-            let shift = settings.direction == .right ? -time / 4 : time / 4
+            // Seconds for the rainbow to slide one full round. Matched by eye to the real pad:
+            // at the default delay of 40 it takes about 2.7 seconds.
+            let roundLength = settings.waveDelay / 15
+            let shift = settings.direction == .right ? -time / roundLength : time / roundLength
             glow = KeyGlow(color: Color(hue: fraction(position * 0.6 + shift), saturation: 1, brightness: 1), intensity: 1)
         case .reactive:
             // A key flashes when pressed and fades out; faster speed = shorter fade.
