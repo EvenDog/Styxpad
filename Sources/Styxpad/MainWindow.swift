@@ -119,6 +119,17 @@ struct ProfileSwitcher: View {
                 renamingProfileID = active.id
             }
             Button("Export “\(activeName)”…") { export(active) }
+            Menu("Print Shortcut Sheet") {
+                ForEach(Layer.allCases) { layer in
+                    Button("\(layer.rawValue) Shortcuts…") {
+                        ShortcutSheet.printProfile(active, layer: layer, macros: store.macros)
+                    }
+                }
+                Divider()
+                Button("Blank Worksheet…") {
+                    ShortcutSheet.printProfile(active, layer: .normal, macros: [], blank: true)
+                }
+            }
             Button("Delete “\(activeName)”", role: .destructive) { store.deleteProfile(active.id) }
                 .disabled(store.profiles.count < 2)
         } label: {

@@ -24,6 +24,9 @@ keys. Styxpad lets you remap every key, record macros, set up six profiles, and 
 - **Profiles that follow your apps:** link apps to a profile and Styxpad switches to it whenever
   one of them is in front, then switches back when you leave.
 - **Import and export** profiles to back them up or share them.
+- **Printable shortcut sheets:** open the profile menu → **Print Shortcut Sheet** for Normal,
+  Hypershift, or a blank worksheet. Each sheet includes all 28 controls and a blank “What it
+  does” column for handwritten notes. Use the print dialog’s PDF menu to save a copy.
 - **Bring your Synapse setup along:** import a profile exported from Razer Synapse 4 on Windows
   (a `.synapse4` file). Each Synapse keymap becomes a Styxpad profile, and Ctrl shortcuts can be
   turned into ⌘ ones. Macro recordings and lighting don't come across yet; Styxpad lists what it
