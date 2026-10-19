@@ -6,7 +6,6 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(WelcomeView.completedKey) private var hasCompletedWelcome = false
-    @AppStorage(UpdateChecker.automaticCheckKey) private var checksForUpdates = true
     @AppStorage(AppModel.lightsOffWhileAwayKey) private var lightsOffWhileAway = true
     // SMAppService.mainApp = "this app" as a login item. We mirror its status in a @State
     // so the toggle can show it and change it.
@@ -35,17 +34,27 @@ struct SettingsView: View {
                 }
 
                 Section("Updates") {
-                    Toggle("Check for updates automatically", isOn: $checksForUpdates)
-                        .help("Once a day, Styxpad asks GitHub whether a newer version has been released")
+                    Toggle("Check for updates automatically", isOn: Binding(
+                        get: { model.updates.automaticallyChecksForUpdates },
+                        set: { model.updates.setAutomaticallyChecksForUpdates($0) }
+                    ))
+                    Toggle("Download updates automatically", isOn: Binding(
+                        get: { model.updates.automaticallyDownloadsUpdates },
+                        set: { model.updates.setAutomaticallyDownloadsUpdates($0) }
+                    ))
+                    .disabled(!model.updates.automaticallyChecksForUpdates)
+                    Text("Downloaded updates install when you quit Styxpad, or you can choose to install and restart sooner. Your profiles are kept.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     HStack {
-                        Text(model.updates.lastCheckResult ?? "Styxpad \(model.updates.currentVersion)")
+                        Text("Styxpad \(model.updates.currentVersion)")
                             .foregroundStyle(.secondary)
                         Spacer()
-                        if let update = model.updates.availableUpdate {
-                            Button("Download \(update.version)…") { NSWorkspace.shared.open(update.pageURL) }
-                        }
-                        Button("Check Now") { Task { await model.updates.check() } }
-                            .disabled(model.updates.isChecking)
+                        Button("Check for Updates…") { model.updates.check() }
+                            .disabled(!model.updates.canCheckForUpdates)
+                    }
+                    if let error = model.updates.startupError {
+                        Text(error).foregroundStyle(.orange)
                     }
                 }
 
@@ -116,6 +125,7 @@ func showAboutPanel() {
     let credits = NSMutableAttributedString(
         string: "Key remapping for Razer Tartarus keypads on macOS.\n\n"
             + "Lighting protocol based on public research by the OpenRazer and CommandPost projects.\n\n"
+            + "Automatic updates powered by Sparkle (MIT License).\n\n"
             + "Not affiliated with or endorsed by Razer Inc. Released under the MIT License.",
         attributes: [
             .font: NSFont.systemFont(ofSize: 11),

@@ -11,12 +11,16 @@ swift build -c release
 APP="build/Styxpad.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/Styxpad "$APP/Contents/MacOS/"
+BINARY="$(swift build -c release --show-bin-path)/Styxpad"
+cp "$BINARY" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"   # the app icon (made by Design/make-icon.swift)
 
-# Sign with your Apple Development certificate. A stable signature means macOS
-# keeps your granted permissions after each rebuild.
-codesign --force --sign "Apple Development" "$APP"
+# Match the installed release's identity so testing doesn't replace its permissions.
+# Override explicitly with SIGNING_IDENTITY for another developer's certificate.
+SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application}"
+bash Tools/embed-sparkle.sh "$APP" "$SIGNING_IDENTITY"
+codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP"
+codesign --verify --deep --strict "$APP"
 
 echo "Built $APP — launch it with: open $APP"

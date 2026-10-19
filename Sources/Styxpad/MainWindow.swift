@@ -32,9 +32,6 @@ struct MainWindowView: View {
                 if let copy = model.unreadableProfilesCopy {
                     UnreadableProfilesBanner(copy: copy)
                 }
-                if let update = model.updates.availableUpdate, !model.updates.isBannerDismissed {
-                    UpdateBanner(update: update)
-                }
                 switch tab {
                 case .keys: KeysScreen()
                 case .lighting: LightingScreen()
@@ -295,28 +292,6 @@ struct UnreadableProfilesBanner: View {
             Spacer()
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([copy]) }
             Button("Dismiss") { model.unreadableProfilesCopy = nil }
-        }
-        .font(.system(size: 12))
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
-        .background(Theme.panel)
-    }
-}
-
-/// "Styxpad 0.3 is available. [Download] [Later]": shown when GitHub has a newer release.
-struct UpdateBanner: View {
-    @Environment(AppModel.self) private var model
-    let update: UpdateChecker.Release
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "arrow.up.circle.fill")
-                .foregroundStyle(Theme.river)
-            Text("Styxpad \(update.version) is available. You have \(model.updates.currentVersion).")
-                .foregroundStyle(Theme.textSecondary)
-            Spacer()
-            Button("Download") { NSWorkspace.shared.open(update.pageURL) }
-            Button("Later") { model.updates.isBannerDismissed = true }
         }
         .font(.system(size: 12))
         .padding(.horizontal, 18)

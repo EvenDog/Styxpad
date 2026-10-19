@@ -25,6 +25,12 @@ echo "==> Building Styxpad $VERSION for Apple Silicon and Intel"
 swift build -c release --arch arm64 --arch x86_64
 BINARY="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/Styxpad"
 
+# Fail before replacing build output if this Mac lacks the matching update-signing key.
+SPARKLE_TOOLS=".build/artifacts/sparkle/Sparkle/bin"
+PUBLIC_KEY="$("$SPARKLE_TOOLS/generate_keys" --account Styxpad -p)"
+EXPECTED_KEY=$(/usr/libexec/PlistBuddy -c "Print SUPublicEDKey" Resources/Info.plist)
+test "$PUBLIC_KEY" = "$EXPECTED_KEY" || { echo "Sparkle signing key doesn't match Info.plist." >&2; exit 1; }
+
 rm -rf release
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/"
@@ -32,10 +38,11 @@ cp Resources/Info.plist "$APP/Contents/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 
 echo "==> Signing the app"
+bash Tools/embed-sparkle.sh "$APP" "$IDENTITY"
 # --options runtime = the "hardened runtime" Apple requires for notarization.
 # --timestamp = a secure timestamp from Apple, so the signature stays valid after the certificate expires.
 codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
-codesign --verify --strict --verbose=2 "$APP"
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 # The styled "drag Styxpad into Applications" DMG (see make-dmg.sh).
 ./make-dmg.sh "$APP" "$DMG"
@@ -48,4 +55,15 @@ xcrun stapler staple "$DMG"   # attach Apple's approval ticket, so it also works
 echo "==> Checking that Gatekeeper accepts it"
 spctl --assess --type open --context context:primary-signature --verbose "$DMG"
 
+# Sign the final, stapled bytes. Publish this feed with the DMG on the same GitHub release.
+echo "==> Generating the signed update feed"
+if [ -f "docs/release-notes/$VERSION.html" ]; then
+    cp "docs/release-notes/$VERSION.html" "release/Styxpad-$VERSION.html"
+fi
+"$SPARKLE_TOOLS/generate_appcast" --account Styxpad --maximum-deltas 0 \
+    --download-url-prefix "https://github.com/EvenDog/Styxpad/releases/download/v$VERSION/" \
+    --link "https://github.com/EvenDog/Styxpad/releases/tag/v$VERSION" \
+    --embed-release-notes release
+
 echo "Done: $DMG"
+echo "Upload both $DMG and release/appcast.xml to the GitHub release."

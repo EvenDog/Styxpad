@@ -24,6 +24,8 @@ keys. Styxpad lets you remap every key, record macros, set up six profiles, and 
 - **Profiles that follow your apps:** link apps to a profile and Styxpad switches to it whenever
   one of them is in front, then switches back when you leave.
 - **Import and export** profiles to back them up or share them.
+- **Updates inside the app:** check, download, install and restart from the menu bar or
+  Settings. Automatic downloads can install when you quit, keeping your profiles.
 - **Printable shortcut sheets:** open the profile menu → **Print Shortcut Sheet** for Normal,
   Hypershift, or a blank worksheet. Each sheet includes all 28 controls and a blank “What it
   does” column for handwritten notes. Use the print dialog’s PDF menu to save a copy.
@@ -39,7 +41,7 @@ keys. Styxpad lets you remap every key, record macros, set up six profiles, and 
 
 ## Install
 
-1. Download **Styxpad-0.3.3.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
+1. Download **Styxpad-0.3.4.dmg** from the [Releases page](https://github.com/EvenDog/Styxpad/releases/latest).
 2. Open it and drag **Styxpad** into **Applications**.
 3. Open Styxpad. The welcome screen walks you through two permissions macOS requires:
    - **Input Monitoring** — so Styxpad can read your Tartarus's key presses.
@@ -58,8 +60,12 @@ other Tartarus models may work for remapping but are untested.
 - Styxpad doesn't install any drivers. It mutes the Tartarus's own keys using Apple's built-in
   per-device key remapping, and gives them back when Styxpad quits.
 - If the Tartarus's keys ever stop working after Styxpad crashes, unplug it and plug it back in.
-- Once a day Styxpad asks GitHub whether a newer version has been released, and tells you if so.
-  Nothing about you is sent. You can turn this off in Settings.
+- Styxpad uses [Sparkle](https://sparkle-project.org/) to check for signed updates once a day.
+  Automatic checks and downloads can be turned off in Settings. Downloaded updates install
+  when you quit, or choose **Check for Updates…** to install and restart sooner.
+  Anonymous system profiling is disabled.
+- Updating from 0.3.3 or earlier: install 0.3.4 once with the DMG to get the new updater.
+  Future releases can then be installed inside the app.
 - Updating from 0.1: once you've used 0.2's new actions or macros, don't go back to 0.1. It can't
   read them and starts over with a blank profile.
 - To remap the scroll wheel, Styxpad takes it over while running and does the scrolling itself;
@@ -77,6 +83,19 @@ open build/Styxpad.app
 
 `./make-release.sh` builds the signed, notarized DMG (it needs a Developer ID certificate and
 notarization credentials — see the comments at the top of the script).
+It also creates `release/appcast.xml`, the signed update feed. **Upload both the DMG and
+appcast.xml to every GitHub release**, before making it the latest release. The feed URL uses
+GitHub's latest-release download URL, so the installer and feed are published together.
+
+Sparkle is pinned in `Package.swift` and `Package.resolved`. Both build scripts embed its
+framework and sign its helper tools. Local builds default to Developer ID signing to match
+the installed app's macOS permissions; another developer can set `SIGNING_IDENTITY` explicitly.
+The update-signing private key stays in the macOS Keychain under Sparkle's `Styxpad` account.
+The public key in `Resources/Info.plist` must match it; the release script checks this before
+packaging. Do not regenerate the key for each release. New release notes can go in
+`docs/release-notes/<version>.html`; the script embeds them in the signed feed.
+
+Run `swift test` for updater preference migration checks.
 
 ### How it works
 

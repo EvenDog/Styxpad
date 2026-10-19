@@ -108,6 +108,7 @@ final class AppModel {
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
+            self?.remapper.releaseAll()
             self?.device.stop()
         }
     }
